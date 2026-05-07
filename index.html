@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Drone Detection — AI System</title>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/ort.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:     #080c10;
+  --bg2:    #0d1318;
+  --panel:  #0f1923;
+  --border: #1a2a35;
+  --accent: #00d4ff;
+  --green:  #00ff88;
+  --red:    #ff4444;
+  --warn:   #ffaa00;
+  --text:   #c8d8e0;
+  --muted:  #4a6070;
+  --hud:    'Share Tech Mono', monospace;
+  --ui:     'Rajdhani', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+/* Header */
+header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;border-bottom:1px solid var(--border);background:rgba(8,12,16,0.97);backdrop-filter:blur(10px);}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-icon{width:38px;height:38px;border:1.5px solid var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 14px rgba(0,212,255,0.35);animation:glow 3s ease-in-out infinite;}
+@keyframes glow{0%,100%{box-shadow:0 0 14px rgba(0,212,255,0.35);}50%{box-shadow:0 0 26px rgba(0,212,255,0.7);}}
+.logo-title{font-size:22px;font-weight:700;letter-spacing:3px;color:#fff;}
+.logo-sub{font-family:var(--hud);font-size:10px;color:var(--accent);letter-spacing:3px;}
+.header-status{display:flex;gap:18px;font-family:var(--hud);font-size:11px;}
+.st{display:flex;align-items:center;gap:6px;color:var(--muted);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+.dot.g{background:var(--green);box-shadow:0 0 6px var(--green);}
+.dot.b{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+.dot.r{background:var(--red);box-shadow:0 0 6px var(--red);}
+.dot.pulse{animation:dp 1s ease-in-out infinite;}
+@keyframes dp{0%,100%{opacity:1}50%{opacity:0.2}}
+
+/* Layout */
+main{position:relative;z-index:1;max-width:1300px;margin:0 auto;padding:28px 32px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:22px;position:relative;overflow:hidden;}
+.panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0.4;}
+.panel-title{font-family:var(--hud);font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--accent);margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+
+/* Upload */
+.drop-zone{border:2px dashed var(--border);border-radius:8px;padding:52px 24px;text-align:center;cursor:pointer;transition:all 0.25s;background:rgba(0,212,255,0.015);}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:rgba(0,212,255,0.07);}
+.drop-icon{font-size:44px;margin-bottom:14px;opacity:0.55;}
+.drop-title{font-size:17px;font-weight:600;color:var(--text);}
+.drop-sub{font-family:var(--hud);font-size:11px;color:var(--muted);margin-top:6px;}
+
+/* Buttons */
+.btn{font-family:var(--ui);font-weight:600;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:11px 24px;border-radius:5px;cursor:pointer;border:none;transition:all 0.2s;display:inline-flex;align-items:center;gap:8px;}
+.btn-primary{background:var(--accent);color:#000;}
+.btn-primary:hover{background:#22e4ff;box-shadow:0 0 18px rgba(0,212,255,0.45);}
+.btn-ghost{background:transparent;color:var(--accent);border:1px solid var(--accent);}
+.btn-ghost:hover{background:rgba(0,212,255,0.09);}
+.btn:disabled{opacity:0.35;cursor:not-allowed;}
+
+/* Model loader */
+.model-load-box{border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:20px;background:rgba(0,0,0,0.3);}
+.model-load-title{font-family:var(--hud);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:10px;}
+.file-btn-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.progress-wrap{background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:3px;height:5px;overflow:hidden;margin-top:10px;}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));transition:width 0.4s;width:0%;}
+
+/* Canvas & result */
+#canvas-wrap{position:relative;width:100%;border-radius:8px;overflow:hidden;background:#000;min-height:220px;display:flex;align-items:center;justify-content:center;}
+#output-canvas{width:100%;display:none;border-radius:8px;}
+#canvas-placeholder{font-family:var(--hud);font-size:12px;color:var(--muted);text-align:center;position:absolute;}
+
+/* Detection list */
+.det-list{display:flex;flex-direction:column;gap:6px;margin-top:14px;max-height:320px;overflow-y:auto;}
+.det-item{display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:5px;padding:9px 14px;font-family:var(--hud);font-size:12px;animation:fadeIn 0.2s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.det-class{font-weight:bold;font-size:13px;}
+.cls-drone{color:var(--red);}
+.cls-person{color:var(--green);}
+.cls-vehicle{color:var(--warn);}
+.det-conf{color:var(--accent);}
+.conf-bar{height:3px;border-radius:2px;margin-top:3px;transition:width 0.3s;}
+.det-box-coords{color:var(--muted);font-size:10px;}
+
+/* Stats cards */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.stat-card{background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:7px;padding:14px;text-align:center;}
+.stat-val{font-family:var(--hud);font-size:28px;line-height:1;}
+.stat-lbl{font-family:var(--hud);font-size:9px;color:var(--muted);margin-top:5px;letter-spacing:1px;}
+
+/* Log */
+#log-box{background:#000;border:1px solid var(--border);border-radius:6px;padding:12px;height:130px;overflow-y:auto;font-family:var(--hud);font-size:11px;line-height:1.8;color:var(--muted);}
+.log-ok{color:var(--green);}
+.log-err{color:var(--red);}
+.log-info{color:var(--accent);}
+
+/* Spinner */
+.spinner{width:16px;height:16px;border:2px solid rgba(0,212,255,0.25);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Threshold slider */
+.slider-row{display:flex;align-items:center;gap:12px;margin:12px 0;}
+.slider-lbl{font-family:var(--hud);font-size:10px;color:var(--muted);width:80px;}
+input[type=range]{-webkit-appearance:none;flex:1;height:4px;background:var(--border);border-radius:2px;outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;}
+.slider-val{font-family:var(--hud);font-size:11px;color:var(--accent);width:36px;text-align:right;}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--panel);border:1px solid var(--accent);border-radius:7px;padding:12px 20px;font-family:var(--hud);font-size:12px;color:var(--accent);z-index:9999;transform:translateY(60px);opacity:0;transition:all 0.3s;box-shadow:0 4px 20px rgba(0,212,255,0.2);}
+#toast.show{transform:translateY(0);opacity:1;}
+
+/* Footer */
+footer{text-align:center;padding:28px;font-family:var(--hud);font-size:10px;color:var(--muted);letter-spacing:2px;border-top:1px solid var(--border);margin-top:40px;}
+
+/* Scanline */
+body::after{content:'';position:fixed;left:0;right:0;height:2px;background:linear-gradient(transparent,rgba(0,212,255,0.06),transparent);animation:scan 7s linear infinite;pointer-events:none;z-index:0;}
+@keyframes scan{0%{top:-2px}100%{top:100vh}}
+
+@media(max-width:768px){.grid{grid-template-columns:1fr;}header{flex-direction:column;gap:10px;}.stats-row{grid-template-columns:1fr 1fr 1fr;}main{padding:16px;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🚁</div>
+    <div>
+      <div class="logo-title">SENTINEL</div>
+      <div class="logo-sub">DRONE DETECTION SYSTEM</div>
+    </div>
+  </div>
+  <div class="header-status">
+    <div class="st"><div class="dot" id="model-dot"></div><span id="model-st">NO MODEL</span></div>
+    <div class="st" style="color:var(--muted);font-family:var(--hud);font-size:11px" id="clock"></div>
+  </div>
+</header>
+
+<main>
+  <div class="grid">
+
+    <!-- LEFT: Upload & Controls -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Model Loader -->
+      <div class="panel">
+        <div class="panel-title">⬡ Load ONNX Model</div>
+        <div class="model-load-box">
+          <div class="model-load-title">SELECT YOUR EXPORTED best.onnx FILE</div>
+          <div class="file-btn-row">
+            <button class="btn btn-ghost" onclick="document.getElementById('model-file').click()">📂 Choose best.onnx</button>
+            <span id="model-file-name" style="font-family:var(--hud);font-size:11px;color:var(--muted)">No file selected</span>
+          </div>
+          <input type="file" id="model-file" accept=".onnx" style="display:none" onchange="loadModel(this)"/>
+          <div class="progress-wrap"><div class="progress-bar" id="model-progress"></div></div>
+        </div>
+
+        <!-- Thresholds -->
+        <div class="slider-row">
+          <span class="slider-lbl">CONF THRESH</span>
+          <input type="range" id="conf-slider" min="0.1" max="0.9" step="0.05" value="0.35" oninput="document.getElementById('conf-val').textContent=parseFloat(this.value).toFixed(2)"/>
+          <span class="slider-val" id="conf-val">0.35</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-lbl">IOU THRESH</span>
+          <input type="range" id="iou-slider" min="0.1" max="0.9" step="0.05" value="0.45" oninput="document.getElementById('iou-val').textContent=parseFloat(this.value).toFixed(2)"/>
+          <span class="slider-val" id="iou-val">0.45</span>
+        </div>
+      </div>
+
+      <!-- Upload -->
+      <div class="panel">
+        <div class="panel-title">◈ Upload Image</div>
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('img-file').click()">
+          <div class="drop-icon">📷</div>
+          <div class="drop-title">Drop image here or click to browse</div>
+          <div class="drop-sub">JPG · PNG · BMP · WEBP</div>
+        </div>
+        <input type="file" id="img-file" accept="image/*" style="display:none" onchange="handleImage(this)"/>
+        <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" id="detect-btn" onclick="runDetection()" disabled>
+            <span class="spinner" id="spin" style="display:none"></span>
+            Run Detection
+          </button>
+          <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+          <span id="img-name" style="font-family:var(--hud);font-size:11px;color:var(--muted)"></span>
+        </div>
+      </div>
+
+      <!-- Log -->
+      <div class="panel">
+        <div class="panel-title">◎ System Log</div>
+        <div id="log-box"><span>System ready. Load your ONNX model to begin.</span></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Output -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-val" style="color:var(--red)" id="cnt-drone">0</div>
+          <div class="stat-lbl">DRONE</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" style="color:var(--green)" id="cnt-person">0</div>
+          <div class="stat-lbl">PERSON</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" style="color:var(--warn)" id="cnt-vehicle">0</div>
+          <div class="stat-lbl">VEHICLE</div>
+        </div>
+      </div>
+
+      <!-- Canvas output -->
+      <div class="panel" style="flex:1">
+        <div class="panel-title">◈ Detection Output</div>
+        <div id="canvas-wrap">
+          <div id="canvas-placeholder">Load a model and upload an image</div>
+          <canvas id="output-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Detection list -->
+      <div class="panel">
+        <div class="panel-title" style="justify-content:space-between">
+          <span>◈ Detected Objects</span>
+          <span id="det-count" style="font-family:var(--hud);font-size:10px;color:var(--muted)">0 objects</span>
+        </div>
+        <div class="det-list" id="det-list">
+          <div style="color:var(--muted);font-family:var(--hud);font-size:12px;text-align:center;padding:20px 0">No detections yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>SENTINEL DRONE DETECTION SYSTEM · ONNX IN-BROWSER INFERENCE · YOLOV8</footer>
+<div id="toast"></div>
+
+<script>
+// ── Config ───────────────────────────────────────────────
+const CLASS_NAMES  = ['drone', 'person', 'vehicle'];
+const CLASS_COLORS = ['#ff4444', '#00ff88', '#ffaa00'];
+const INPUT_SIZE   = 640;
+
+let session    = null;
+let imgElement = null;
+let imgTensor  = null;
+let origW = 0, origH = 0;
+
+// ── Clock ────────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-US', {hour12:false});
+}, 1000);
+
+// ── Log ──────────────────────────────────────────────────
+function log(msg, type='') {
+  const box = document.getElementById('log-box');
+  const d = document.createElement('div');
+  d.className = type;
+  d.textContent = `[${new Date().toLocaleTimeString('en-US',{hour12:false})}] ${msg}`;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ── Toast ────────────────────────────────────────────────
+function toast(msg, color='var(--accent)') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = color;
+  t.style.color = color;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Load ONNX model ──────────────────────────────────────
+async function loadModel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('model-file-name').textContent = file.name;
+  document.getElementById('model-dot').className = 'dot pulse b';
+  document.getElementById('model-st').textContent = 'LOADING...';
+  log(`Loading model: ${file.name}`, 'log-info');
+
+  const prog = document.getElementById('model-progress');
+  prog.style.width = '30%';
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    prog.style.width = '60%';
+    session = await ort.InferenceSession.create(arrayBuffer, {
+      executionProviders: ['wasm'],
+    });
+    prog.style.width = '100%';
+    document.getElementById('model-dot').className = 'dot g';
+    document.getElementById('model-st').textContent = 'MODEL READY';
+    log(`✅ Model loaded! Input: ${JSON.stringify(session.inputNames)}`, 'log-ok');
+    toast('Model loaded successfully!', 'var(--green)');
+
+    // Auto-detect input size
+    const inputMeta = session.inputNames[0];
+    log(`Input name: ${inputMeta}`, 'log-info');
+
+  } catch(e) {
+    prog.style.width = '0%';
+    document.getElementById('model-dot').className = 'dot r';
+    document.getElementById('model-st').textContent = 'LOAD FAILED';
+    log(`❌ Model load error: ${e.message}`, 'log-err');
+    toast('Model load failed: ' + e.message, 'var(--red)');
+  }
+}
+
+// ── Handle image upload ──────────────────────────────────
+function handleImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('img-name').textContent = file.name;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      imgElement = img;
+      origW = img.width;
+      origH = img.height;
+
+      // Draw preview on canvas
+      const canvas = document.getElementById('output-canvas');
+      canvas.width  = origW;
+      canvas.height = origH;
+      canvas.style.display = 'block';
+      document.getElementById('canvas-placeholder').style.display = 'none';
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      document.getElementById('detect-btn').disabled = !session;
+      log(`Image loaded: ${file.name} (${origW}x${origH})`, 'log-info');
+      if (!session) log('⚠ Load a model first!', 'log-err');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Drag & Drop ──────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) {
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    document.getElementById('img-file').files = dt.files;
+    handleImage(document.getElementById('img-file'));
+  }
+});
+
+// ── Preprocess image → tensor ────────────────────────────
+function preprocessImage(img) {
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width  = INPUT_SIZE;
+  offCanvas.height = INPUT_SIZE;
+  const ctx = offCanvas.getContext('2d');
+
+  // Letterbox: scale to fit INPUT_SIZE x INPUT_SIZE
+  const scale  = Math.min(INPUT_SIZE / img.width, INPUT_SIZE / img.height);
+  const newW   = Math.round(img.width  * scale);
+  const newH   = Math.round(img.height * scale);
+  const padX   = Math.floor((INPUT_SIZE - newW) / 2);
+  const padY   = Math.floor((INPUT_SIZE - newH) / 2);
+
+  ctx.fillStyle = '#808080';
+  ctx.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
+  ctx.drawImage(img, padX, padY, newW, newH);
+
+  const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
+  const { data }  = imageData;
+
+  // HWC → CHW, normalise /255
+  const float32 = new Float32Array(3 * INPUT_SIZE * INPUT_SIZE);
+  for (let i = 0; i < INPUT_SIZE * INPUT_SIZE; i++) {
+    float32[i]                          = data[i*4]   / 255; // R
+    float32[i + INPUT_SIZE*INPUT_SIZE]  = data[i*4+1] / 255; // G
+    float32[i + INPUT_SIZE*INPUT_SIZE*2]= data[i*4+2] / 255; // B
+  }
+
+  return {
+    tensor: new ort.Tensor('float32', float32, [1, 3, INPUT_SIZE, INPUT_SIZE]),
+    scale, padX, padY,
+  };
+}
+
+// ── NMS helper ───────────────────────────────────────────
+function iou(a, b) {
+  const ix1 = Math.max(a[0],b[0]), iy1 = Math.max(a[1],b[1]);
+  const ix2 = Math.min(a[2],b[2]), iy2 = Math.min(a[3],b[3]);
+  const inter = Math.max(0,ix2-ix1) * Math.max(0,iy2-iy1);
+  const areaA = (a[2]-a[0])*(a[3]-a[1]);
+  const areaB = (b[2]-b[0])*(b[3]-b[1]);
+  return inter / (areaA + areaB - inter + 1e-6);
+}
+
+function nms(boxes, iouThresh) {
+  boxes.sort((a,b) => b.conf - a.conf);
+  const keep = [];
+  const used = new Set();
+  for (let i = 0; i < boxes.length; i++) {
+    if (used.has(i)) continue;
+    keep.push(boxes[i]);
+    for (let j = i+1; j < boxes.length; j++) {
+      if (!used.has(j) && boxes[i].cls === boxes[j].cls &&
+          iou(boxes[i].bbox, boxes[j].bbox) > iouThresh) {
+        used.add(j);
+      }
+    }
+  }
+  return keep;
+}
+
+// ── Run detection ────────────────────────────────────────
+async function runDetection() {
+  if (!session || !imgElement) return;
+
+  const btn  = document.getElementById('detect-btn');
+  const spin = document.getElementById('spin');
+  btn.disabled = true;
+  spin.style.display = 'inline-block';
+
+  const confThresh = parseFloat(document.getElementById('conf-slider').value);
+  const iouThresh  = parseFloat(document.getElementById('iou-slider').value);
+
+  log(`Running detection (conf=${confThresh}, iou=${iouThresh})...`, 'log-info');
+
+  try {
+    const { tensor, scale, padX, padY } = preprocessImage(imgElement);
+    const inputName = session.inputNames[0];
+    const feeds = { [inputName]: tensor };
+
+    const t0      = performance.now();
+    const results = await session.run(feeds);
+    const t1      = performance.now();
+
+    log(`Inference: ${(t1-t0).toFixed(0)}ms`, 'log-ok');
+
+    // YOLOv8 output: [1, 4+nc, 8400]
+    const outputName = session.outputNames[0];
+    const output     = results[outputName].data;
+    const [_, rows, cols] = results[outputName].dims; // [1, 6, 8400]
+
+    // Parse detections
+    const rawBoxes = [];
+    const numDet = results[outputName].dims[2] || results[outputName].dims[1];
+    const numAttr = results[outputName].dims[1] || results[outputName].dims[2];
+
+    // Handle both [1,6,8400] and [1,8400,6] layouts
+    const isTransposed = results[outputName].dims[1] > results[outputName].dims[2];
+
+    for (let i = 0; i < (isTransposed ? results[outputName].dims[2] : results[outputName].dims[1]); i++) {
+      let cx, cy, w, h, classScores;
+      if (isTransposed) {
+        // dims [1, 8400, 6]
+        const offset = i * numAttr;
+        cx = output[offset];
+        cy = output[offset+1];
+        w  = output[offset+2];
+        h  = output[offset+3];
+        classScores = Array.from(output.slice(offset+4, offset+numAttr));
+      } else {
+        // dims [1, 6, 8400] — standard YOLOv8 ONNX
+        cx = output[0 * numDet + i];
+        cy = output[1 * numDet + i];
+        w  = output[2 * numDet + i];
+        h  = output[3 * numDet + i];
+        classScores = [];
+        for (let c = 4; c < numAttr; c++) {
+          classScores.push(output[c * numDet + i]);
+        }
+      }
+
+      const maxScore = Math.max(...classScores);
+      if (maxScore < confThresh) continue;
+      const cls = classScores.indexOf(maxScore);
+
+      // Convert from letterboxed coords to original image coords
+      const x1 = ((cx - w/2) - padX) / scale;
+      const y1 = ((cy - h/2) - padY) / scale;
+      const x2 = ((cx + w/2) - padX) / scale;
+      const y2 = ((cy + h/2) - padY) / scale;
+
+      rawBoxes.push({
+        bbox: [
+          Math.max(0, x1), Math.max(0, y1),
+          Math.min(origW, x2), Math.min(origH, y2),
+        ],
+        conf: maxScore,
+        cls,
+      });
+    }
+
+    const finalBoxes = nms(rawBoxes, iouThresh);
+    log(`Found ${finalBoxes.length} object(s) after NMS`, finalBoxes.length > 0 ? 'log-ok' : '');
+    drawResults(finalBoxes);
+    updateUI(finalBoxes);
+    toast(`${finalBoxes.length} object(s) detected!`);
+
+  } catch(e) {
+    log(`❌ Detection error: ${e.message}`, 'log-err');
+    toast('Detection error: ' + e.message, 'var(--red)');
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    spin.style.display = 'none';
+  }
+}
+
+// ── Draw bounding boxes ──────────────────────────────────
+function drawResults(boxes) {
+  const canvas = document.getElementById('output-canvas');
+  const ctx    = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(imgElement, 0, 0);
+
+  boxes.forEach(({ bbox, conf, cls }) => {
+    const [x1, y1, x2, y2] = bbox;
+    const color  = CLASS_COLORS[cls] || '#ffffff';
+    const label  = `${CLASS_NAMES[cls] || cls}  ${(conf*100).toFixed(1)}%`;
+    const bw     = x2 - x1;
+    const bh     = y2 - y1;
+
+    // Box
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2.5;
+    ctx.strokeRect(x1, y1, bw, bh);
+
+    // Corner accents
+    const cs = Math.min(bw, bh, 18);
+    ctx.lineWidth = 3;
+    [[x1,y1],[x2,y1],[x1,y2],[x2,y2]].forEach(([px,py], idx) => {
+      ctx.beginPath();
+      const dx = idx%2===0 ? cs : -cs;
+      const dy = idx < 2   ? cs : -cs;
+      ctx.moveTo(px+dx, py);
+      ctx.lineTo(px, py);
+      ctx.lineTo(px, py+dy);
+      ctx.stroke();
+    });
+
+    // Label bg
+    ctx.font = 'bold 13px Share Tech Mono, monospace';
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = color;
+    ctx.fillRect(x1-1, y1-22, tw+12, 22);
+
+    // Label text
+    ctx.fillStyle = '#000';
+    ctx.fillText(label, x1+5, y1-6);
+  });
+}
+
+// ── Update detection list & counters ────────────────────
+function updateUI(boxes) {
+  const counts = {drone:0, person:0, vehicle:0};
+  boxes.forEach(b => {
+    const name = CLASS_NAMES[b.cls] || 'unknown';
+    if (name in counts) counts[name]++;
+  });
+  document.getElementById('cnt-drone').textContent   = counts.drone;
+  document.getElementById('cnt-person').textContent  = counts.person;
+  document.getElementById('cnt-vehicle').textContent = counts.vehicle;
+  document.getElementById('det-count').textContent   = `${boxes.length} object${boxes.length!==1?'s':''}`;
+
+  const list = document.getElementById('det-list');
+  if (!boxes.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-family:var(--hud);font-size:12px;text-align:center;padding:20px 0">No objects detected</div>';
+    return;
+  }
+
+  list.innerHTML = boxes.map(({bbox, conf, cls}, i) => {
+    const name  = CLASS_NAMES[cls] || `class_${cls}`;
+    const color = CLASS_COLORS[cls] || '#fff';
+    const [x1,y1,x2,y2] = bbox.map(v => Math.round(v));
+    return `
+      <div class="det-item">
+        <div>
+          <div class="det-class cls-${name}">${name.toUpperCase()}</div>
+          <div class="conf-bar" style="width:${conf*100}%;background:${color}40;border:1px solid ${color}"></div>
+        </div>
+        <div style="text-align:right">
+          <div class="det-conf">${(conf*100).toFixed(1)}%</div>
+          <div class="det-box-coords">[${x1},${y1} → ${x2},${y2}]</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Clear ────────────────────────────────────────────────
+function clearAll() {
+  imgElement = null;
+  document.getElementById('img-file').value = '';
+  document.getElementById('img-name').textContent = '';
+  document.getElementById('detect-btn').disabled = true;
+  const canvas = document.getElementById('output-canvas');
+  canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+  canvas.style.display = 'none';
+  document.getElementById('canvas-placeholder').style.display = 'block';
+  document.getElementById('det-list').innerHTML = '<div style="color:var(--muted);font-family:var(--hud);font-size:12px;text-align:center;padding:20px 0">No detections yet</div>';
+  document.getElementById('cnt-drone').textContent = 0;
+  document.getElementById('cnt-person').textContent = 0;
+  document.getElementById('cnt-vehicle').textContent = 0;
+  document.getElementById('det-count').textContent = '0 objects';
+}
+</script>
+</body>
+</html>
