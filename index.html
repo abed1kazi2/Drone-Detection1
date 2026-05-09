@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Sentinel — Drone Detection AI</title>
+<title>SENTINEL - Drone Detection</title>
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet"/>
 <style>
@@ -14,177 +14,173 @@
   --hud:'Share Tech Mono',monospace;--ui:'Rajdhani',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:var(--ui);min-height:100vh;overflow-x:hidden;}
-/* (All your original beautiful CSS - kept unchanged) */
-body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
-body::after{content:'';position:fixed;left:0;right:0;height:2px;background:linear-gradient(transparent,rgba(0,212,255,0.06),transparent);animation:scan 7s linear infinite;pointer-events:none;z-index:0;}
-@keyframes scan{0%{top:-2px}100%{top:100vh}}
-header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:12px 28px;border-bottom:1px solid var(--border);background:rgba(8,12,16,0.97);backdrop-filter:blur(10px);}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);min-height:100vh;}
+header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:12px 28px;border-bottom:1px solid var(--border);background:rgba(8,12,16,0.97);}
 .logo{display:flex;align-items:center;gap:12px;}
-.logo-icon{width:36px;height:36px;border:1.5px solid var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:18px;animation:glow 3s ease-in-out infinite;}
-@keyframes glow{0%,100%{box-shadow:0 0 12px rgba(0,212,255,0.3);}50%{box-shadow:0 0 24px rgba(0,212,255,0.7);}}
+.logo-icon{width:36px;height:36px;border:1.5px solid var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:18px;}
 .logo-title{font-size:20px;font-weight:700;letter-spacing:3px;color:#fff;}
-.logo-sub{font-family:var(--hud);font-size:9px;color:var(--accent);letter-spacing:3px;}
-/* ... Rest of your original CSS remains the same ... */
+.tab{padding:12px 24px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;font-weight:600;}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px;}
+button{padding:10px 20px;margin:5px;border:none;border-radius:6px;cursor:pointer;font-weight:600;}
+.btn-primary{background:var(--accent);color:#000;}
+.btn-success{background:var(--green);color:#000;}
+.log{background:#000;padding:12px;height:140px;overflow-y:auto;font-family:var(--hud);font-size:12px;}
 </style>
 </head>
 <body>
-<!-- Your entire HTML body remains exactly the same -->
+
 <header>
   <div class="logo">
     <div class="logo-icon">🚁</div>
-    <div><div class="logo-title">SENTINEL</div><div class="logo-sub">DRONE DETECTION SYSTEM</div></div>
+    <div class="logo-title">SENTINEL</div>
   </div>
-  <div class="hstatus">
-    <div class="st"><div class="dot" id="model-dot"></div><span id="model-st">NO MODEL</span></div>
-    <div class="st"><span id="clock" style="font-family:var(--hud);font-size:11px"></span></div>
-  </div>
+  <div style="color:var(--accent);font-family:var(--hud);">820×820 MODEL</div>
 </header>
 
-<!-- (All your tabs and panels stay exactly the same - I'm only changing the script) -->
-<nav>
-  <div class="tab active" onclick="goTab('image')">📷 Image</div>
-  <div class="tab" onclick="goTab('video')">🎬 Video</div>
-  <div class="tab" onclick="goTab('webcam')">📹 Webcam</div>
+<nav style="display:flex;background:var(--bg2);border-bottom:1px solid var(--border);">
+  <div class="tab active" onclick="goTab(0)">Image</div>
+  <div class="tab" onclick="goTab(1)">Webcam</div>
 </nav>
 
-<main>
-  <!-- All your page content remains unchanged -->
-  <!-- ... (Image, Video, Webcam pages) ... -->
+<main style="max-width:1200px;margin:20px auto;padding:0 20px;">
+
+  <!-- Model Loader -->
+  <div class="panel">
+    <h3>⬡ Load ONNX Model</h3>
+    <input type="file" id="modelFile" accept=".onnx" style="margin:10px 0;" onchange="loadModel(this)"/>
+    <div id="modelStatus" style="color:var(--accent);font-family:var(--hud);margin-top:8px;">No model loaded</div>
+  </div>
+
+  <!-- Image Tab -->
+  <div id="tab0">
+    <div class="panel">
+      <h3>📷 Upload Image</h3>
+      <input type="file" id="imgFile" accept="image/*" onchange="handleImage(this)"/>
+      <button class="btn-primary" onclick="runDetection()" style="margin-top:10px;">Run Detection</button>
+    </div>
+    <div class="panel">
+      <canvas id="outputCanvas" style="max-width:100%;background:#000;border-radius:8px;"></canvas>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <!-- Webcam Tab -->
+  <div id="tab1" style="display:none;">
+    <div class="panel">
+      <button class="btn-success" onclick="startWebcam()">Start Webcam</button>
+      <button class="btn-primary" onclick="toggleLiveDetection()" id="liveBtn">Start Live Detection</button>
+      <button onclick="stopWebcam()">Stop</button>
+    </div>
+    <div class="panel">
+      <video id="video" autoplay playsinline style="width:100%;max-width:640px;background:#000;border-radius:8px;"></video>
+      <canvas id="wcCanvas" style="display:none;width:100%;max-width:640px;"></canvas>
+    </div>
+  </div>
+
 </main>
 
-<footer>SENTINEL · ONNX IN-BROWSER INFERENCE · YOLOV8 · 820×820 MODEL</footer>
-<div id="toast"></div>
-
 <script>
-// ── Updated Script with 820 support ─────────────────────
-const CN = ['drone','person','vehicle'];
-const CC = ['#ff4444','#00ff88','#ffaa00'];
-
-let modelInputSize = 820;        // ← Changed for your model
+// Global variables
 let session = null;
-let imgEl = null, origW = 0, origH = 0;
-let vidStop = false;
-let wcStream= null, wcRunning = false, wcFrameCount = 0;
-let wcCounts= {drone:0,person:0,vehicle:0};
-let wcFps = 0, wcFpsTimer = 0, wcFpsCount = 0;
-let wcAnimId= null;
+let modelInputSize = 820;
+let currentImg = null;
+let isLive = false;
+let stream = null;
 
-const $ = id => document.getElementById(id);
-
-// Clock
-setInterval(()=>{ $('clock').textContent = new Date().toLocaleTimeString('en-US',{hour12:false}); }, 1000);
-
-// Tab switch
-function goTab(name){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelector(`[onclick="goTab('${name}')"]`).classList.add('active');
-  $(`page-${name}`).classList.add('active');
-  syncModelStatus();
+// Tab Switch
+function goTab(n) {
+  document.getElementById('tab0').style.display = n===0 ? 'block' : 'none';
+  document.getElementById('tab1').style.display = n===1 ? 'block' : 'none';
 }
 
-// Log, Toast, syncModelStatus functions (same as before)
-function log(msg, cls=''){
-  const box = $('log-box') || document.createElement('div');
-  if(!box.id) return console.log(msg);
-  const d = document.createElement('div');
-  d.className = cls;
-  d.textContent = `[${new Date().toLocaleTimeString('en-US',{hour12:false})}] ${msg}`;
-  box.appendChild(d);
-  box.scrollTop = box.scrollHeight;
-}
-
-function toast(msg, color='var(--accent)'){
-  const t = $('toast');
-  t.textContent=msg; t.style.borderColor=color; t.style.color=color;
-  t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),3000);
-}
-
-function syncModelStatus(){
-  ['vid','wc'].forEach(prefix=>{
-    const dot = $(`${prefix}-mdot`), st = $(`${prefix}-mst`);
-    if(session){ dot.className='dot g'; st.textContent='Model ready ✅'; }
-    else { dot.className='dot r'; st.textContent='Load model in Image tab first'; }
-  });
-}
-
-// ── Model Loading ───────────────────────────────────────
-async function loadModel(input){
-  const file = input.files[0]; if(!file) return;
-  $('onnx-name').textContent = file.name;
-  $('model-dot').className = 'dot pulse b';
-  $('model-st').textContent = 'LOADING...';
-
-  try{
-    const buf = await file.arrayBuffer();
-    session = await ort.InferenceSession.create(buf, {executionProviders:['wasm']});
-    
-    // Auto detect input size from model
-    if(session.inputs && session.inputs[0]){
-      const shape = session.inputs[0].type.shape;
-      modelInputSize = shape[2] || shape[3] || 820;
-    }
-
-    $('model-dot').className = 'dot g';
-    $('model-st').textContent = `MODEL READY (${modelInputSize}×${modelInputSize})`;
-    log(`✅ Model loaded — Input Size: ${modelInputSize}×${modelInputSize}`,'lok');
-    toast('Model loaded successfully!', 'var(--green)');
-    syncModelStatus();
-  }catch(e){
-    log(`❌ ${e.message}`,'lerr');
-    toast('Failed to load model', 'var(--red)');
+// Load Model
+async function loadModel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('modelStatus').textContent = "Loading " + file.name + "...";
+  try {
+    const buffer = await file.arrayBuffer();
+    session = await ort.InferenceSession.create(buffer);
+    document.getElementById('modelStatus').innerHTML = `✅ Loaded <b>${file.name}</b> (${modelInputSize}×${modelInputSize})`;
+    log("Model loaded successfully");
+  } catch(e) {
+    document.getElementById('modelStatus').textContent = "❌ Load failed";
+    log("Error loading model: " + e.message, "red");
   }
 }
 
-// ── Preprocess (Dynamic Size) ───────────────────────────
-function preprocess(src, sW, sH){
-  const oc = document.createElement('canvas');
-  oc.width = modelInputSize;
-  oc.height = modelInputSize;
-  const ctx = oc.getContext('2d');
-  
-  const sc = Math.min(modelInputSize/sW, modelInputSize/sH);
-  const nW = Math.round(sW*sc), nH = Math.round(sH*sc);
-  const pX = Math.floor((modelInputSize-nW)/2);
-  const pY = Math.floor((modelInputSize-nH)/2);
+// Simple logging
+function log(msg, color="white") {
+  const logEl = document.getElementById('log');
+  const entry = document.createElement('div');
+  entry.style.color = color;
+  entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  logEl.appendChild(entry);
+  logEl.scrollTop = logEl.scrollHeight;
+}
 
+// Preprocess
+function preprocess(img) {
+  const canvas = document.createElement('canvas');
+  canvas.width = modelInputSize;
+  canvas.height = modelInputSize;
+  const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#808080';
   ctx.fillRect(0,0,modelInputSize,modelInputSize);
-  ctx.drawImage(src, 0, 0, sW, sH, pX, pY, nW, nH);
-
-  const {data} = ctx.getImageData(0,0,modelInputSize,modelInputSize);
-  const f32 = new Float32Array(3 * modelInputSize * modelInputSize);
-
-  for(let i = 0; i < modelInputSize*modelInputSize; i++){
-    f32[i]                     = data[i*4]   / 255;
-    f32[i + modelInputSize*modelInputSize]   = data[i*4+1] / 255;
-    f32[i + 2*modelInputSize*modelInputSize] = data[i*4+2] / 255;
+  const scale = Math.min(modelInputSize/img.width, modelInputSize/img.height);
+  const newW = img.width * scale;
+  const newH = img.height * scale;
+  const x = (modelInputSize - newW)/2;
+  const y = (modelInputSize - newH)/2;
+  ctx.drawImage(img, x, y, newW, newH);
+  
+  const data = ctx.getImageData(0,0,modelInputSize,modelInputSize).data;
+  const tensorData = new Float32Array(3*modelInputSize*modelInputSize);
+  for (let i = 0; i < modelInputSize*modelInputSize; i++) {
+    tensorData[i] = data[i*4]/255;
+    tensorData[i + modelInputSize*modelInputSize] = data[i*4+1]/255;
+    tensorData[i + 2*modelInputSize*modelInputSize] = data[i*4+2]/255;
   }
+  return new ort.Tensor('float32', tensorData, [1, 3, modelInputSize, modelInputSize]);
+}
 
-  return {
-    tensor: new ort.Tensor('float32', f32, [1, 3, modelInputSize, modelInputSize]),
-    sc, pX, pY
+// Run Detection on Image
+async function runDetection() {
+  const fileInput = document.getElementById('imgFile');
+  if (!fileInput.files[0] || !session) {
+    alert("Please load model and select an image");
+    return;
+  }
+  log("Running detection...");
+  const img = new Image();
+  img.onload = async () => {
+    currentImg = img;
+    const tensor = preprocess(img);
+    try {
+      const output = await session.run({[session.inputNames[0]]: tensor});
+      log("Inference completed - " + output[session.outputNames[0]].dims);
+      // TODO: Add full post-processing later
+    } catch(e) {
+      log("Inference error: " + e.message, "red");
+    }
   };
+  img.src = URL.createObjectURL(fileInput.files[0]);
 }
 
-// Rest of your functions (infer, nms, drawBoxes, etc.) remain the same
-// ... (I kept them identical to your original for consistency)
-
-async function infer(src, sW, sH, confTh, iouTh=0.45){
-  const {tensor,sc,pX,pY} = preprocess(src,sW,sH);
-  const res = await session.run({[session.inputNames[0]]: tensor});
-  const out = res[session.outputNames[0]];
-  // ... (rest of your original infer function stays the same)
-  // I'll keep it short here for space
-  // Paste your original infer + nms + drawBoxes functions below
+// Webcam functions (basic for now)
+async function startWebcam() {
+  stream = await navigator.mediaDevices.getUserMedia({video: true});
+  document.getElementById('video').srcObject = stream;
+  log("Webcam started");
 }
 
-// Paste all your remaining original script functions here (handleImg, runImg, startWC, etc.)
+function stopWebcam() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  log("Webcam stopped");
+}
 
-// For now, to make it work immediately, at least update the size variables.
-
+log("Page loaded. Please load your best.onnx model.");
 </script>
 </body>
 </html>
