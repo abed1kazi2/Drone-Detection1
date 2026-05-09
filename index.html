@@ -484,23 +484,76 @@ function nms(boxes,th){
 
 async function infer(src, sW, sH, confTh, iouTh=0.45){
   const {tensor,sc,pX,pY} = preprocess(src,sW,sH);
-  const res   = await session.run({[session.inputNames[0]]:tensor});
-  const out   = res[session.outputNames[0]];
-  const data  = out.data, dims = out.dims;
-  const isT   = dims[1]>dims[2];
-  const nDet  = isT?dims[2]:dims[1], nAttr = isT?dims[1]:dims[2];
-  const raw   = [];
-  for(let i=0;i<nDet;i++){
-    let cx,cy,w,h,sc2=[];
-    if(isT){const o=i*nAttr;cx=data[o];cy=data[o+1];w=data[o+2];h=data[o+3];sc2=Array.from(data.slice(o+4,o+nAttr));}
-    else{cx=data[0*nDet+i];cy=data[1*nDet+i];w=data[2*nDet+i];h=data[3*nDet+i];for(let c=4;c<nAttr;c++)sc2.push(data[c*nDet+i]);}
-    const maxS=Math.max(...sc2); if(maxS<confTh) continue;
-    const cls=sc2.indexOf(maxS);
-    raw.push({
-      bbox:[Math.max(0,((cx-w/2)-pX)/sc),Math.max(0,((cy-h/2)-pY)/sc),Math.min(sW,((cx+w/2)-pX)/sc),Math.min(sH,((cy+h/2)-pY)/sc)],
-      conf:maxS, cls
-    });
+  const res  = await session.run({[session.inputNames[0]]:tensor});
+  const out  = res[session.outputNames[0]];
+  const data = out.data;
+  const dims = out.dims;
+
+  // Log shape once for debugging
+  if(!window._shapeLogged){
+    window._shapeLogged=true;
+    log(`Output shape: [${dims.join(', ')}]  total=${data.length}`,'linf');
+    log(`Max val: ${Math.max(...data.slice(0,1000)).toFixed(4)}  Min: ${Math.min(...data.slice(0,1000)).toFixed(4)}`,'linf');
   }
+
+  const raw = [];
+
+  // ── Handle all YOLOv8 ONNX output layouts ──────────────
+  // Layout A: [1, num_attrs, num_dets]  e.g. [1, 6, 8400]  ← standard export
+  // Layout B: [1, num_dets, num_attrs]  e.g. [1, 8400, 6]  ← transposed export
+  // Layout C: [num_dets, num_attrs]     e.g. [8400, 6]      ← some exporters drop batch dim
+
+  let nDet, nAttr, getRow;
+
+  if(dims.length===3){
+    const [batch, d1, d2] = dims;
+    // d1 is attrs if d1 < d2, else d1 is dets
+    if(d1 < d2){
+      // Layout A: [1, attrs, dets]
+      nDet=d2; nAttr=d1;
+      getRow = i => {
+        const row=[];
+        for(let a=0;a<nAttr;a++) row.push(data[a*nDet+i]);
+        return row;
+      };
+    } else {
+      // Layout B: [1, dets, attrs]
+      nDet=d1; nAttr=d2;
+      getRow = i => Array.from(data.slice(i*nAttr, i*nAttr+nAttr));
+    }
+  } else if(dims.length===2){
+    // Layout C: [dets, attrs]
+    nDet=dims[0]; nAttr=dims[1];
+    getRow = i => Array.from(data.slice(i*nAttr, i*nAttr+nAttr));
+  } else {
+    log(`Unknown output shape: ${dims}`,'lerr');
+    return [];
+  }
+
+  for(let i=0;i<nDet;i++){
+    const row = getRow(i);
+    const cx=row[0], cy=row[1], w=row[2], h=row[3];
+    if(w<=0||h<=0) continue;
+
+    // Class scores start at index 4
+    const scores = row.slice(4);
+    if(!scores.length) continue;
+
+    let maxS=scores[0], cls=0;
+    for(let s=1;s<scores.length;s++) if(scores[s]>maxS){maxS=scores[s];cls=s;}
+
+    if(maxS < confTh) continue;
+
+    // Convert letterboxed coords → original image coords
+    const x1 = Math.max(0, ((cx - w/2) - pX) / sc);
+    const y1 = Math.max(0, ((cy - h/2) - pY) / sc);
+    const x2 = Math.min(sW,((cx + w/2) - pX) / sc);
+    const y2 = Math.min(sH,((cy + h/2) - pY) / sc);
+
+    if(x2>x1 && y2>y1)
+      raw.push({ bbox:[x1,y1,x2,y2], conf:maxS, cls });
+  }
+
   return nms(raw,iouTh);
 }
 
