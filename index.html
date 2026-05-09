@@ -788,49 +788,78 @@ async function startWC(){
   toast('Camera started!','var(--green)');
 
   const confTh = () => parseFloat($('wc-conf').value);
-  let lastBoxes = [];
+  let lastBoxes  = [];
+  let inferBusy  = false;
+  let frameCount = 0;
 
-  // ── Inference runs in background — never blocks canvas ──
-  const inferLoop = async () => {
-    while(wcRunning){
-      try{
-        const boxes = await infer(video, canvas.width, canvas.height, confTh(), 0.45);
-        if(!wcRunning) break;
-        lastBoxes = boxes;
-        boxes.forEach(b=>{ const n=CN[b.cls]; if(n in wcCounts) wcCounts[n]++; });
-        $('wc-drone').textContent   = wcCounts.plane;
-        $('wc-person').textContent  = wcCounts.person;
-        $('wc-vehicle').textContent = wcCounts.vehicle;
-        const tc={};
-        boxes.forEach(b=>{ const n=CN[b.cls]||'?'; tc[n]=(tc[n]||0)+1; });
-        $('wc-tags').innerHTML=Object.entries(tc).map(([n,c])=>
-          `<div class="wc-tag ${n}">${n.toUpperCase()} ${c}</div>`).join('');
-        $('wc-dets').innerHTML=boxes.length
-          ?boxes.map(({conf,cls})=>`<div class="det-item"><span class="dcls cls-${CN[cls]||'plane'}">${(CN[cls]||'?').toUpperCase()}</span><span class="dconf">${(conf*100).toFixed(1)}%</span></div>`).join('')
-          :'<div style="color:var(--muted);font-family:var(--hud);font-size:11px;text-align:center;padding:10px">No objects detected</div>';
-      }catch(e){ await new Promise(r=>setTimeout(r,50)); }
-    }
-  };
-
-  // ── Draw loop runs at full ~30fps independent of inference speed ──
-  const drawLoop = () => {
+  const loop = () => {
     if(!wcRunning) return;
+
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(video,0,0,canvas.width,canvas.height);
-    if(lastBoxes.length) drawBoxes(canvas,video,lastBoxes,canvas.width,canvas.height);
-    wcFpsCount++; wcFrameCount++;
-    const now=Date.now();
-    if(now-wcFpsTimer>=1000){
-      wcFps=wcFpsCount; wcFpsCount=0; wcFpsTimer=now;
-      $('wc-fps').textContent=wcFps+' FPS';
-      $('wc-fps-val').textContent=wcFps;
-      $('wc-frame-cnt').textContent=wcFrameCount;
+
+    // Always draw video — never skip this
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Draw last known boxes on top
+    lastBoxes.forEach(({bbox,conf,cls})=>{
+      const[x1,y1,x2,y2]=bbox, col=CC[cls]||'#fff';
+      ctx.strokeStyle=col; ctx.lineWidth=2;
+      ctx.strokeRect(x1,y1,x2-x1,y2-y1);
+      const lbl=`${CN[cls]||'?'} ${(conf*100).toFixed(0)}%`;
+      ctx.font='bold 12px monospace';
+      const tw=ctx.measureText(lbl).width;
+      ctx.fillStyle=col; ctx.fillRect(x1,y1-18,tw+8,18);
+      ctx.fillStyle='#000'; ctx.fillText(lbl,x1+4,y1-4);
+    });
+
+    // FPS
+    wcFpsCount++; wcFrameCount++; frameCount++;
+    const now = Date.now();
+    if(now-wcFpsTimer >= 1000){
+      $('wc-fps').textContent = wcFpsCount+' FPS';
+      $('wc-fps-val').textContent = wcFpsCount;
+      $('wc-frame-cnt').textContent = wcFrameCount;
+      wcFpsCount=0; wcFpsTimer=now;
     }
-    wcAnimId=requestAnimationFrame(drawLoop);
+
+    // Run inference every 6 frames only, and only if not already running
+    if(frameCount % 6 === 0 && !inferBusy){
+      inferBusy = true;
+      // Capture current frame to offscreen canvas so video keeps playing
+      const off = document.createElement('canvas');
+      off.width=canvas.width; off.height=canvas.height;
+      off.getContext('2d').drawImage(video,0,0,off.width,off.height);
+
+      infer(off, off.width, off.height, confTh(), 0.45)
+        .then(boxes=>{
+          if(!wcRunning){ inferBusy=false; return; }
+          lastBoxes = boxes;
+          // Update counts
+          boxes.forEach(b=>{ const n=CN[b.cls]; if(n in wcCounts) wcCounts[n]++; });
+          $('wc-drone').textContent   = wcCounts.plane||wcCounts.drone||0;
+          $('wc-person').textContent  = wcCounts.person||0;
+          $('wc-vehicle').textContent = wcCounts.vehicle||0;
+          // Tags
+          const tc={};
+          boxes.forEach(b=>{ const n=CN[b.cls]||'?'; tc[n]=(tc[n]||0)+1; });
+          $('wc-tags').innerHTML=Object.entries(tc).map(([n,c])=>
+            `<div class="wc-tag ${n}">${n.toUpperCase()} ${c}</div>`).join('');
+          // Det list
+          $('wc-dets').innerHTML=boxes.length
+            ?boxes.map(({conf,cls})=>`<div class="det-item">
+                <span class="dcls cls-${CN[cls]||'plane'}">${(CN[cls]||'?').toUpperCase()}</span>
+                <span class="dconf">${(conf*100).toFixed(1)}%</span>
+              </div>`).join('')
+            :'<div style="color:var(--muted);font-family:var(--hud);font-size:11px;text-align:center;padding:10px">No objects</div>';
+        })
+        .catch(()=>{})
+        .finally(()=>{ inferBusy=false; });
+    }
+
+    wcAnimId = requestAnimationFrame(loop);
   };
 
-  inferLoop();
-  drawLoop();
+  loop();
 }
 
 function stopWC(){
