@@ -300,8 +300,6 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
           <div class="dot" id="wc-mdot"></div><span id="wc-mst">Load model in Image tab first</span>
         </div>
         <div class="srow"><span class="slbl">CONFIDENCE</span><input type="range" id="wc-conf" min="0.1" max="0.9" step="0.05" value="0.4" oninput="$('wc-conf-val').textContent=parseFloat(this.value).toFixed(2)"/><span class="sval" id="wc-conf-val">0.40</span></div>
-        <div class="srow"><span class="slbl">RUN EVERY N</span><input type="range" id="wc-every" min="1" max="10" step="1" value="2" oninput="$('wc-every-val').textContent=this.value+'f'"/><span class="sval" id="wc-every-val">2f</span></div>
-        <div style="font-family:var(--hud);font-size:9px;color:var(--muted);">Run detection every N frames to keep feed smooth.</div>
       </div>
 
       <div class="panel">
@@ -362,12 +360,12 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
 // ── Globals ──────────────────────────────────────────────
 const CN  = ['plane','person','vehicle'];
 const CC  = ['#ff4444','#00ff88','#ffaa00'];
-const SZ = 704;
+const SZ  = 704;
 let session = null;
 let imgEl   = null, origW = 0, origH = 0;
 let vidStop = false;
 let wcStream= null, wcRunning = false, wcFrameCount = 0;
-let wcCounts= {drone:0,person:0,vehicle:0};
+let wcCounts= {plane:0,person:0,vehicle:0};
 let wcFps   = 0, wcFpsTimer = 0, wcFpsCount = 0;
 let wcAnimId= null;
 
@@ -790,40 +788,37 @@ async function startWC(){
   toast('Camera started!','var(--green)');
 
   const confTh = () => parseFloat($('wc-conf').value);
-  const every  = () => parseInt($('wc-every').value);
-  let frameN = 0;
   let lastBoxes = [];
 
-  const loop = async () => {
-    if(!wcRunning){ canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height); return; }
-
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video,0,0,canvas.width,canvas.height);
-
-    if(frameN % every() === 0){
+  // ── Inference runs in background — never blocks canvas ──
+  const inferLoop = async () => {
+    while(wcRunning){
       try{
-        lastBoxes = await infer(video, canvas.width, canvas.height, confTh(), 0.45);
-        lastBoxes.forEach(b=>{const n=CN[b.cls];if(n in wcCounts)wcCounts[n]++;});
-        $('wc-drone').textContent   = wcCounts.drone;
+        const boxes = await infer(video, canvas.width, canvas.height, confTh(), 0.45);
+        if(!wcRunning) break;
+        lastBoxes = boxes;
+        boxes.forEach(b=>{ const n=CN[b.cls]; if(n in wcCounts) wcCounts[n]++; });
+        $('wc-drone').textContent   = wcCounts.plane;
         $('wc-person').textContent  = wcCounts.person;
         $('wc-vehicle').textContent = wcCounts.vehicle;
-        // Detection tags overlay
-        const tagCounts={};
-        lastBoxes.forEach(b=>{const n=CN[b.cls]||'?';tagCounts[n]=(tagCounts[n]||0)+1;});
-        $('wc-tags').innerHTML=Object.entries(tagCounts).map(([n,c])=>
+        const tc={};
+        boxes.forEach(b=>{ const n=CN[b.cls]||'?'; tc[n]=(tc[n]||0)+1; });
+        $('wc-tags').innerHTML=Object.entries(tc).map(([n,c])=>
           `<div class="wc-tag ${n}">${n.toUpperCase()} ${c}</div>`).join('');
-        // Det list
-        $('wc-dets').innerHTML=lastBoxes.length
-          ?lastBoxes.map(({conf,cls})=>`<div class="det-item"><span class="dcls cls-${CN[cls]||'drone'}">${(CN[cls]||'?').toUpperCase()}</span><span class="dconf">${(conf*100).toFixed(1)}%</span></div>`).join('')
+        $('wc-dets').innerHTML=boxes.length
+          ?boxes.map(({conf,cls})=>`<div class="det-item"><span class="dcls cls-${CN[cls]||'plane'}">${(CN[cls]||'?').toUpperCase()}</span><span class="dconf">${(conf*100).toFixed(1)}%</span></div>`).join('')
           :'<div style="color:var(--muted);font-family:var(--hud);font-size:11px;text-align:center;padding:10px">No objects detected</div>';
-      }catch(e){}
+      }catch(e){ await new Promise(r=>setTimeout(r,50)); }
     }
+  };
 
-    // Draw last known boxes on every frame for smoothness
-    if(lastBoxes.length) drawBoxes(canvas, video, lastBoxes, canvas.width, canvas.height);
-
-    // FPS
-    wcFpsCount++; frameN++; wcFrameCount++;
+  // ── Draw loop runs at full ~30fps independent of inference speed ──
+  const drawLoop = () => {
+    if(!wcRunning) return;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    if(lastBoxes.length) drawBoxes(canvas,video,lastBoxes,canvas.width,canvas.height);
+    wcFpsCount++; wcFrameCount++;
     const now=Date.now();
     if(now-wcFpsTimer>=1000){
       wcFps=wcFpsCount; wcFpsCount=0; wcFpsTimer=now;
@@ -831,10 +826,11 @@ async function startWC(){
       $('wc-fps-val').textContent=wcFps;
       $('wc-frame-cnt').textContent=wcFrameCount;
     }
-
-    wcAnimId = requestAnimationFrame(loop);
+    wcAnimId=requestAnimationFrame(drawLoop);
   };
-  loop();
+
+  inferLoop();
+  drawLoop();
 }
 
 function stopWC(){
@@ -854,7 +850,7 @@ function stopWC(){
 }
 
 function resetWC(){
-  wcCounts={drone:0,person:0,vehicle:0};
+  wcCounts={plane:0,person:0,vehicle:0};
   wcFrameCount=0;
   $('wc-drone').textContent='0'; $('wc-person').textContent='0'; $('wc-vehicle').textContent='0';
   $('wc-frame-cnt').textContent='0';
