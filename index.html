@@ -358,7 +358,7 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
 
 <script>
 // ── Globals ──────────────────────────────────────────────
-const CN  = ['plane','person'];
+const CN  = ["drone", "person"];
 const CC  = ['#ff4444','#00ff88'];
 const SZ = 640;
 let session = null;
@@ -643,7 +643,7 @@ async function runImg(){
     const ms=Math.round(performance.now()-t0);
     log(`${boxes.length} object(s) in ${ms}ms`,boxes.length?'lok':'');
     drawBoxes($('img-canvas'),imgEl,boxes,origW,origH);
-    const c={plane:0,person:0,vehicle:0};
+    const c={drone:0,person:0};
     boxes.forEach(b=>{const n=CN[b.cls];if(n in c)c[n]++;});
     $('i-drone').textContent=c.plane; $('i-person').textContent=c.person; $('i-vehicle').textContent=c.vehicle;
     $('i-count').textContent=`${boxes.length} object${boxes.length!==1?'s':''}`;
