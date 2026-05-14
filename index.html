@@ -699,7 +699,7 @@ async function loadModel(input){
   try{
     const buf = await file.arrayBuffer();
     $('model-prog').style.width = '60%';
-    session = await ort.InferenceSession.create(buf,{executionProviders:['wasm']});
+    session = await ort.InferenceSession.create(buf,{executionProviders:['webgl','wasm']});
     $('model-prog').style.width = '100%';
     $('model-dot').className = 'dot g';
     $('model-st').textContent = 'MODEL READY';
