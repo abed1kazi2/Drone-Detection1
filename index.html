@@ -26,7 +26,7 @@ header{position:relative;z-index:10;display:flex;align-items:center;justify-cont
 @keyframes glow{0%,100%{box-shadow:0 0 12px rgba(0,212,255,0.3);}50%{box-shadow:0 0 24px rgba(0,212,255,0.7);}}
 .logo-title{font-size:20px;font-weight:700;letter-spacing:3px;color:#fff;}
 .logo-sub{font-family:var(--hud);font-size:9px;color:var(--accent);letter-spacing:3px;}
-.hstatus{display:flex;gap:16px;font-family:var(--hud);font-size:11px;}
+.hstatus{display:flex;gap:16px;font-family:var(--hud);font-size:11px;align-items:center;}
 .st{display:flex;align-items:center;gap:6px;color:var(--muted);}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
 .dot.g{background:var(--green);box-shadow:0 0 6px var(--green);}
@@ -34,6 +34,16 @@ header{position:relative;z-index:10;display:flex;align-items:center;justify-cont
 .dot.r{background:var(--red);box-shadow:0 0 6px var(--red);}
 .dot.pulse{animation:dp 1s ease-in-out infinite;}
 @keyframes dp{0%,100%{opacity:1}50%{opacity:0.2}}
+
+/* Alert toggle in header */
+.alert-ctrl{display:flex;align-items:center;gap:8px;font-family:var(--hud);font-size:10px;color:var(--muted);background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:5px;padding:5px 10px;}
+.alert-ctrl label{cursor:pointer;user-select:none;}
+.toggle{position:relative;width:32px;height:16px;cursor:pointer;}
+.toggle input{opacity:0;width:0;height:0;}
+.slider{position:absolute;inset:0;background:var(--border);border-radius:8px;transition:0.3s;}
+.slider:before{content:'';position:absolute;width:12px;height:12px;left:2px;top:2px;background:var(--muted);border-radius:50%;transition:0.3s;}
+input:checked+.slider{background:var(--red);}
+input:checked+.slider:before{transform:translateX(16px);background:#fff;}
 
 /* Nav */
 nav{position:relative;z-index:10;display:flex;padding:0 28px;background:var(--bg2);border-bottom:1px solid var(--border);}
@@ -89,20 +99,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
 .det-item{display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:5px;padding:8px 12px;font-family:var(--hud);font-size:11px;animation:fi 0.15s ease;}
 @keyframes fi{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
 .dcls{font-weight:bold;font-size:12px;}
-.cls-drone{color:var(--red);}.cls-plane{color:var(--red);}.cls-person{color:var(--green);}.cls-vehicle{color:var(--warn);}
+.cls-drone{color:var(--red);}.cls-person{color:var(--green);}
 .dconf{color:var(--accent);}
 .cbar{height:2px;border-radius:1px;margin-top:2px;}
 .dcoords{color:var(--muted);font-size:9px;}
 
 /* Stat cards */
-.scards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.scards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;}
 .scard{background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:7px;padding:12px;text-align:center;}
-.sval{font-family:var(--hud);font-size:26px;line-height:1;}
-.slb{font-family:var(--hud);font-size:9px;color:var(--muted);margin-top:4px;letter-spacing:1px;}
+.scard .sval{font-family:var(--hud);font-size:26px;line-height:1;}
+.scard .slb{font-family:var(--hud);font-size:9px;color:var(--muted);margin-top:4px;letter-spacing:1px;}
 
 /* Log */
 #log-box{background:#000;border:1px solid var(--border);border-radius:6px;padding:10px;height:120px;overflow-y:auto;font-family:var(--hud);font-size:10px;line-height:1.9;color:var(--muted);}
-.lok{color:var(--green);}.lerr{color:var(--red);}.linf{color:var(--accent);}
+.lok{color:var(--green);}.lerr{color:var(--red);}.linf{color:var(--accent);}.lalert{color:var(--warn);font-weight:bold;}
 
 /* Spinner */
 .spin{width:14px;height:14px;border:2px solid rgba(0,212,255,0.2);border-top-color:var(--accent);border-radius:50%;animation:sp 0.7s linear infinite;display:inline-block;}
@@ -118,12 +128,39 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
 #wc-ph{font-family:var(--hud);font-size:11px;color:var(--muted);text-align:center;position:absolute;line-height:1.8;}
 .wc-overlay{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:4px;}
 .wc-tag{background:rgba(0,0,0,0.75);border:1px solid;border-radius:3px;padding:3px 8px;font-family:var(--hud);font-size:10px;}
-.wc-tag.drone{color:var(--red);border-color:var(--red);}.wc-tag.plane{color:var(--red);border-color:var(--red);}
+.wc-tag.drone{color:var(--red);border-color:var(--red);}
 .wc-tag.person{color:var(--green);border-color:var(--green);}
-.wc-tag.vehicle{color:var(--warn);border-color:var(--warn);}
 .wc-fps{position:absolute;bottom:8px;left:8px;font-family:var(--hud);font-size:10px;color:var(--accent);background:rgba(0,0,0,0.7);padding:2px 8px;border-radius:3px;}
 .wc-rec{position:absolute;top:8px;left:8px;font-family:var(--hud);font-size:10px;color:var(--red);background:rgba(0,0,0,0.7);padding:2px 8px;border-radius:3px;display:none;}
 .wc-rec.show{display:block;animation:dp 1s ease-in-out infinite;}
+
+/* ── ALERT OVERLAY ── */
+#alert-overlay{
+  display:none;position:fixed;inset:0;z-index:9000;pointer-events:none;
+  border:4px solid var(--red);
+  animation:alertPulse 0.5s ease-in-out infinite;
+}
+#alert-overlay.show{display:block;}
+@keyframes alertPulse{0%,100%{border-color:rgba(255,68,68,0.9);box-shadow:inset 0 0 60px rgba(255,68,68,0.15);}50%{border-color:rgba(255,68,68,0.2);box-shadow:inset 0 0 10px rgba(255,68,68,0.05);}}
+
+#alert-banner{
+  display:none;position:fixed;top:70px;left:50%;transform:translateX(-50%);
+  z-index:9100;background:var(--red);color:#fff;
+  font-family:var(--hud);font-size:13px;letter-spacing:2px;
+  padding:12px 32px;border-radius:6px;
+  box-shadow:0 0 40px rgba(255,68,68,0.6);
+  animation:bannerPop 0.3s ease;
+  white-space:nowrap;
+}
+#alert-banner.show{display:block;}
+@keyframes bannerPop{from{transform:translateX(-50%) scale(0.8);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+
+/* Alert log panel */
+#alert-log-list{display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto;}
+.alert-entry{display:flex;justify-content:space-between;align-items:center;background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.3);border-radius:4px;padding:6px 10px;font-family:var(--hud);font-size:10px;}
+.alert-time{color:var(--warn);}
+.alert-cls{color:var(--red);font-weight:bold;}
+.alert-conf{color:var(--muted);}
 
 /* Toast */
 #toast{position:fixed;bottom:22px;right:22px;background:var(--panel);border:1px solid var(--accent);border-radius:7px;padding:10px 18px;font-family:var(--hud);font-size:11px;color:var(--accent);z-index:9999;transform:translateY(60px);opacity:0;transition:all 0.3s;box-shadow:0 4px 20px rgba(0,212,255,0.2);}
@@ -141,12 +178,28 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
 </head>
 <body>
 
+<!-- Alert overlay (flashing red border) -->
+<div id="alert-overlay"></div>
+<!-- Alert banner -->
+<div id="alert-banner">⚠ THREAT DETECTED</div>
+
 <header>
   <div class="logo">
     <div class="logo-icon">🚁</div>
     <div><div class="logo-title">SENTINEL</div><div class="logo-sub">DRONE DETECTION SYSTEM</div></div>
   </div>
   <div class="hstatus">
+    <!-- Alert controls -->
+    <div class="alert-ctrl">
+      <span>🔔 ALERTS</span>
+      <label class="toggle"><input type="checkbox" id="alert-enabled" checked/><span class="slider"></span></label>
+      <span id="alert-status" style="color:var(--red)">ON</span>
+    </div>
+    <div class="alert-ctrl">
+      <span>🔊 ALARM</span>
+      <label class="toggle"><input type="checkbox" id="alarm-enabled" checked/><span class="slider"></span></label>
+      <span id="alarm-status" style="color:var(--red)">ON</span>
+    </div>
     <div class="st"><div class="dot" id="model-dot"></div><span id="model-st">NO MODEL</span></div>
     <div class="st"><span id="clock" style="font-family:var(--hud);font-size:11px"></span></div>
   </div>
@@ -156,6 +209,7 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
   <div class="tab active" onclick="goTab('image')">📷 Image</div>
   <div class="tab" onclick="goTab('video')">🎬 Video</div>
   <div class="tab" onclick="goTab('webcam')">📹 Webcam</div>
+  <div class="tab" onclick="goTab('alerts')">🚨 Alert Log</div>
 </nav>
 
 <main>
@@ -164,8 +218,6 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
 <div class="page active" id="page-image">
   <div class="grid">
     <div style="display:flex;flex-direction:column;gap:16px;">
-
-      <!-- Model loader (shared across all tabs) -->
       <div class="panel">
         <div class="ptitle"><span>⬡ Load ONNX Model</span></div>
         <div class="model-box">
@@ -180,8 +232,6 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
         <div class="srow"><span class="slbl">CONFIDENCE</span><input type="range" id="conf" min="0.1" max="0.9" step="0.05" value="0.35" oninput="$('conf-val').textContent=parseFloat(this.value).toFixed(2)"/><span class="sval" id="conf-val">0.35</span></div>
         <div class="srow"><span class="slbl">IOU THRESH</span><input type="range" id="iou" min="0.1" max="0.9" step="0.05" value="0.45" oninput="$('iou-val').textContent=parseFloat(this.value).toFixed(2)"/><span class="sval" id="iou-val">0.45</span></div>
       </div>
-
-      <!-- Image upload -->
       <div class="panel">
         <div class="ptitle"><span>📷 Upload Image</span></div>
         <div class="dropzone" id="img-dz" onclick="document.getElementById('img-file').click()">
@@ -196,8 +246,6 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
           <span id="img-fname" style="font-family:var(--hud);font-size:10px;color:var(--muted)"></span>
         </div>
       </div>
-
-      <!-- Log -->
       <div class="panel">
         <div class="ptitle"><span>◎ Log</span></div>
         <div id="log-box"><span>Ready. Load best.onnx to begin.</span></div>
@@ -206,9 +254,8 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
 
     <div style="display:flex;flex-direction:column;gap:16px;">
       <div class="scards">
-        <div class="scard"><div class="sval" style="color:var(--red)" id="i-drone">0</div><div class="slb">PLANE</div></div>
+        <div class="scard"><div class="sval" style="color:var(--red)" id="i-drone">0</div><div class="slb">DRONE</div></div>
         <div class="scard"><div class="sval" style="color:var(--green)" id="i-person">0</div><div class="slb">PERSON</div></div>
-        <div class="scard"><div class="sval" style="color:var(--warn)" id="i-vehicle">0</div><div class="slb">VEHICLE</div></div>
       </div>
       <div class="panel" style="flex:1">
         <div class="ptitle"><span>◈ Output</span><span id="i-count" style="font-size:9px;color:var(--muted)">0 objects</span></div>
@@ -229,7 +276,6 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
 <div class="page" id="page-video">
   <div class="grid">
     <div style="display:flex;flex-direction:column;gap:16px;">
-
       <div class="panel">
         <div class="ptitle"><span>⬡ Model</span></div>
         <div style="display:flex;align-items:center;gap:8px;font-family:var(--hud);font-size:11px;">
@@ -241,7 +287,6 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
           <div style="font-family:var(--hud);font-size:9px;color:var(--muted);">Higher skip = faster processing. Set 1 for frame-by-frame.</div>
         </div>
       </div>
-
       <div class="panel">
         <div class="ptitle"><span>🎬 Upload Video</span></div>
         <div class="dropzone" id="vid-dz" onclick="document.getElementById('vid-file').click()">
@@ -260,13 +305,12 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
           <div class="vprog-wrap"><div class="vprog-bar" id="vprog"></div></div>
         </div>
       </div>
-
       <div class="panel">
         <div class="ptitle"><span>◎ Video Totals</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <div class="scard"><div class="sval" style="color:var(--accent);font-size:20px" id="v-frames">0</div><div class="slb">FRAMES</div></div>
           <div class="scard"><div class="sval" style="color:var(--accent);font-size:20px" id="v-total">0</div><div class="slb">DETECTIONS</div></div>
-          <div class="scard"><div class="sval" style="color:var(--red);font-size:20px" id="v-drone">0</div><div class="slb">PLANES</div></div>
+          <div class="scard"><div class="sval" style="color:var(--red);font-size:20px" id="v-drone">0</div><div class="slb">DRONES</div></div>
           <div class="scard"><div class="sval" style="color:var(--green);font-size:20px" id="v-person">0</div><div class="slb">PERSONS</div></div>
         </div>
       </div>
@@ -293,7 +337,6 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
 <div class="page" id="page-webcam">
   <div class="grid">
     <div style="display:flex;flex-direction:column;gap:16px;">
-
       <div class="panel">
         <div class="ptitle"><span>⬡ Model Status</span></div>
         <div style="display:flex;align-items:center;gap:8px;font-family:var(--hud);font-size:11px;margin-bottom:12px;">
@@ -301,7 +344,6 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
         </div>
         <div class="srow"><span class="slbl">CONFIDENCE</span><input type="range" id="wc-conf" min="0.1" max="0.9" step="0.05" value="0.4" oninput="$('wc-conf-val').textContent=parseFloat(this.value).toFixed(2)"/><span class="sval" id="wc-conf-val">0.40</span></div>
       </div>
-
       <div class="panel">
         <div class="ptitle"><span>📹 Camera Controls</span></div>
         <div style="margin-bottom:12px;">
@@ -321,14 +363,11 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
           🔒 Works only over HTTPS (GitHub Pages ✅).
         </div>
       </div>
-
-      <!-- Session totals -->
       <div class="panel">
         <div class="ptitle"><span>◎ Session Totals</span><button class="btn btn-ghost" style="padding:3px 10px;font-size:9px" onclick="resetWC()">Reset</button></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
-          <div class="scard"><div class="sval" style="color:var(--red)" id="wc-drone">0</div><div class="slb">PLANE</div></div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px;">
+          <div class="scard"><div class="sval" style="color:var(--red)" id="wc-drone">0</div><div class="slb">DRONE</div></div>
           <div class="scard"><div class="sval" style="color:var(--green)" id="wc-person">0</div><div class="slb">PERSON</div></div>
-          <div class="scard"><div class="sval" style="color:var(--warn)" id="wc-vehicle">0</div><div class="slb">VEHICLE</div></div>
         </div>
         <div style="font-family:var(--hud);font-size:10px;color:var(--muted)">FPS: <span id="wc-fps-val" style="color:var(--accent)">0</span> &nbsp;|&nbsp; Frames: <span id="wc-frame-cnt" style="color:var(--accent)">0</span></div>
       </div>
@@ -352,27 +391,110 @@ footer{text-align:center;padding:24px;font-family:var(--hud);font-size:9px;color
   </div>
 </div>
 
+<!-- ══════════════ ALERT LOG ══════════════ -->
+<div class="page" id="page-alerts">
+  <div class="grid">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="panel">
+        <div class="ptitle"><span>🚨 Alert Settings</span></div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <!-- Alert cooldown -->
+          <div class="srow">
+            <span class="slbl">COOLDOWN</span>
+            <input type="range" id="alert-cooldown" min="1" max="30" step="1" value="5"
+              oninput="$('cooldown-val').textContent=this.value+'s'"/>
+            <span class="sval" id="cooldown-val" style="width:40px">5s</span>
+          </div>
+          <div style="font-family:var(--hud);font-size:9px;color:var(--muted);">Minimum seconds between alerts to avoid spam.</div>
+
+          <!-- Alert on classes -->
+          <div style="font-family:var(--hud);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;">ALERT ON DETECTION OF:</div>
+          <div style="display:flex;gap:12px;">
+            <label style="display:flex;align-items:center;gap:6px;font-family:var(--hud);font-size:11px;cursor:pointer;">
+              <input type="checkbox" id="alert-drone" checked style="accent-color:var(--red)"/> <span style="color:var(--red)">DRONE</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-family:var(--hud);font-size:11px;cursor:pointer;">
+              <input type="checkbox" id="alert-person" checked style="accent-color:var(--green)"/> <span style="color:var(--green)">PERSON</span>
+            </label>
+          </div>
+
+          <!-- Test buttons -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+            <button class="btn btn-warn" onclick="testAlert('drone')">🧪 Test Drone Alert</button>
+            <button class="btn btn-ghost" onclick="testAlert('person')">🧪 Test Person Alert</button>
+            <button class="btn btn-danger" onclick="clearAlertLog()">🗑 Clear Log</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ptitle"><span>📊 Alert Statistics</span></div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+          <div class="scard"><div class="sval" style="color:var(--red);font-size:22px" id="stat-drone-alerts">0</div><div class="slb">DRONE ALERTS</div></div>
+          <div class="scard"><div class="sval" style="color:var(--green);font-size:22px" id="stat-person-alerts">0</div><div class="slb">PERSON ALERTS</div></div>
+          <div class="scard"><div class="sval" style="color:var(--warn);font-size:22px" id="stat-total-alerts">0</div><div class="slb">TOTAL ALERTS</div></div>
+          <div class="scard"><div class="sval" style="color:var(--accent);font-size:22px" id="stat-last-seen">—</div><div class="slb">LAST SEEN</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="panel" style="flex:1">
+        <div class="ptitle">
+          <span>🚨 Alert History</span>
+          <span id="alert-count-badge" style="font-size:9px;color:var(--warn)">0 alerts</span>
+        </div>
+        <div id="alert-log-list">
+          <div style="color:var(--muted);font-family:var(--hud);font-size:11px;text-align:center;padding:20px">No alerts yet. Start detection to monitor.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </main>
 <footer>SENTINEL · ONNX IN-BROWSER INFERENCE · YOLOV8 · NO DATA LEAVES YOUR DEVICE</footer>
 <div id="toast"></div>
 
 <script>
 // ── Globals ──────────────────────────────────────────────
-const CN  = ["drone", "person"];
-const CC  = ['#ff4444','#00ff88'];
-const SZ = 640;
+const CN  = ["drone", "person"];   // ✅ FIXED: matches your model {0:'drone', 1:'person'}
+const CC  = ['#ff4444','#00ff88']; // drone=red, person=green
+const SZ  = 640;
 let session = null;
 let imgEl   = null, origW = 0, origH = 0;
 let vidStop = false;
 let wcStream= null, wcRunning = false, wcFrameCount = 0;
-let wcCounts= {plane:0,person:0,vehicle:0};
+let wcCounts= {drone:0, person:0};
 let wcFps   = 0, wcFpsTimer = 0, wcFpsCount = 0;
 let wcAnimId= null;
+
+// Alert system state
+let alertLog       = [];
+let alertStats     = {drone:0, person:0, total:0};
+let lastAlertTime  = 0;
+let alertBannerTimer = null;
+let alarmCtx       = null;
+let alarmOscillator= null;
+let alarmGain      = null;
+let alarmPlaying   = false;
 
 const $ = id => document.getElementById(id);
 
 // ── Clock ────────────────────────────────────────────────
 setInterval(()=>{ $('clock').textContent = new Date().toLocaleTimeString('en-US',{hour12:false}); }, 1000);
+
+// ── Alert toggle labels ──────────────────────────────────
+$('alert-enabled').addEventListener('change', function(){
+  $('alert-status').textContent = this.checked ? 'ON' : 'OFF';
+  $('alert-status').style.color = this.checked ? 'var(--red)' : 'var(--muted)';
+});
+$('alarm-enabled').addEventListener('change', function(){
+  $('alarm-status').textContent = this.checked ? 'ON' : 'OFF';
+  $('alarm-status').style.color = this.checked ? 'var(--red)' : 'var(--muted)';
+  if(!this.checked) stopAlarm();
+});
 
 // ── Tab switch ───────────────────────────────────────────
 function goTab(name){
@@ -411,6 +533,159 @@ function syncModelStatus(){
 }
 
 // ════════════════════════════════════════════════════════
+// ALERT SYSTEM
+// ════════════════════════════════════════════════════════
+function initAudio(){
+  if(alarmCtx) return;
+  try{ alarmCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+  catch(e){ console.warn('Web Audio not available'); }
+}
+
+function playAlarm(){
+  if(!$('alarm-enabled').checked || alarmPlaying) return;
+  initAudio();
+  if(!alarmCtx) return;
+  alarmPlaying = true;
+
+  // Create a pulsing alarm sound (alternating 880Hz/440Hz)
+  const master = alarmCtx.createGain();
+  master.gain.setValueAtTime(0.4, alarmCtx.currentTime);
+  master.connect(alarmCtx.destination);
+
+  let t = alarmCtx.currentTime;
+  const dur = 6; // 6 seconds of alarm
+  const beepLen = 0.18, gapLen = 0.08;
+
+  for(let i=0; i<20; i++){
+    const osc = alarmCtx.createOscillator();
+    const g   = alarmCtx.createGain();
+    osc.connect(g); g.connect(master);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(i%2===0 ? 880 : 660, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.5, t+0.01);
+    g.gain.linearRampToValueAtTime(0, t+beepLen);
+    osc.start(t);
+    osc.stop(t + beepLen);
+    t += beepLen + gapLen;
+    if(t > alarmCtx.currentTime + dur) break;
+  }
+
+  setTimeout(()=>{ alarmPlaying = false; }, dur*1000);
+}
+
+function stopAlarm(){
+  alarmPlaying = false;
+}
+
+function sendBrowserNotification(className, conf){
+  if(!$('alert-enabled').checked) return;
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'granted'){
+    new Notification(`⚠ SENTINEL ALERT`, {
+      body: `${className.toUpperCase()} detected! Confidence: ${(conf*100).toFixed(1)}%`,
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🚁</text></svg>',
+      tag: 'sentinel-alert',
+      requireInteraction: false,
+    });
+  } else if(Notification.permission !== 'denied'){
+    Notification.requestPermission().then(p=>{
+      if(p==='granted') sendBrowserNotification(className, conf);
+    });
+  }
+}
+
+function showAlertBanner(className){
+  const banner = $('alert-banner');
+  banner.textContent = `⚠ ${className.toUpperCase()} DETECTED`;
+  banner.classList.add('show');
+  $('alert-overlay').classList.add('show');
+  if(alertBannerTimer) clearTimeout(alertBannerTimer);
+  alertBannerTimer = setTimeout(()=>{
+    banner.classList.remove('show');
+    $('alert-overlay').classList.remove('show');
+  }, 3000);
+}
+
+function triggerAlert(className, conf, source=''){
+  if(!$('alert-enabled').checked) return;
+
+  // Check cooldown
+  const now = Date.now();
+  const cooldown = parseInt($('alert-cooldown').value) * 1000;
+  if(now - lastAlertTime < cooldown) return;
+
+  // Check if this class has alerts enabled
+  const classKey = `alert-${className}`;
+  if(!$(classKey) || !$(classKey).checked) return;
+
+  lastAlertTime = now;
+
+  // Visual alert
+  showAlertBanner(className);
+
+  // Audio alarm
+  playAlarm();
+
+  // Browser notification
+  sendBrowserNotification(className, conf);
+
+  // Log the alert
+  const entry = {
+    time: new Date().toLocaleTimeString('en-US',{hour12:false}),
+    cls: className,
+    conf: conf,
+    source: source,
+    ts: now
+  };
+  alertLog.unshift(entry);
+
+  // Update stats
+  alertStats[className] = (alertStats[className]||0) + 1;
+  alertStats.total++;
+  updateAlertUI();
+
+  log(`🚨 ALERT: ${className.toUpperCase()} (${(conf*100).toFixed(1)}%)`, 'lalert');
+}
+
+function updateAlertUI(){
+  $('stat-drone-alerts').textContent  = alertStats.drone  || 0;
+  $('stat-person-alerts').textContent = alertStats.person || 0;
+  $('stat-total-alerts').textContent  = alertStats.total  || 0;
+  $('alert-count-badge').textContent  = `${alertStats.total} alert${alertStats.total!==1?'s':''}`;
+
+  if(alertLog.length){
+    $('stat-last-seen').textContent = alertLog[0].cls.toUpperCase();
+    $('alert-log-list').innerHTML = alertLog.slice(0,50).map(e=>`
+      <div class="alert-entry">
+        <span class="alert-time">${e.time}</span>
+        <span class="alert-cls">${e.cls.toUpperCase()}</span>
+        <span class="alert-conf">${(e.conf*100).toFixed(1)}%</span>
+        <span style="color:var(--muted);font-size:9px">${e.source}</span>
+      </div>`).join('');
+  }
+}
+
+function clearAlertLog(){
+  alertLog=[]; alertStats={drone:0,person:0,total:0};
+  $('alert-log-list').innerHTML='<div style="color:var(--muted);font-family:var(--hud);font-size:11px;text-align:center;padding:20px">Log cleared.</div>';
+  updateAlertUI();
+}
+
+function testAlert(cls){
+  initAudio();
+  // Force trigger by resetting cooldown
+  lastAlertTime = 0;
+  triggerAlert(cls, 0.92, 'TEST');
+  toast(`Test alert fired: ${cls.toUpperCase()}`, 'var(--warn)');
+}
+
+// Request notification permission on load
+if('Notification' in window && Notification.permission === 'default'){
+  Notification.requestPermission();
+}
+
+// ════════════════════════════════════════════════════════
 // MODEL LOADING
 // ════════════════════════════════════════════════════════
 async function loadModel(input){
@@ -428,7 +703,7 @@ async function loadModel(input){
     $('model-prog').style.width = '100%';
     $('model-dot').className = 'dot g';
     $('model-st').textContent = 'MODEL READY';
-    log(`✅ Model loaded — ${session.outputNames}`,'lok');
+    log(`✅ Model loaded — inputs:${session.inputNames} outputs:${session.outputNames}`,'lok');
     toast('Model loaded!','var(--green)');
     syncModelStatus();
     if(imgEl) $('img-btn').disabled = false;
@@ -487,40 +762,24 @@ async function infer(src, sW, sH, confTh, iouTh=0.45){
   const data = out.data;
   const dims = out.dims;
 
-  // Log shape once for debugging
   if(!window._shapeLogged){
     window._shapeLogged=true;
-    log(`Output shape: [${dims.join(', ')}]  total=${data.length}`,'linf');
-    log(`Max val: ${Math.max(...data.slice(0,1000)).toFixed(4)}  Min: ${Math.min(...data.slice(0,1000)).toFixed(4)}`,'linf');
+    log(`Output shape: [${dims.join(', ')}]`,'linf');
   }
 
   const raw = [];
-
-  // ── Handle all YOLOv8 ONNX output layouts ──────────────
-  // Layout A: [1, num_attrs, num_dets]  e.g. [1, 6, 8400]  ← standard export
-  // Layout B: [1, num_dets, num_attrs]  e.g. [1, 8400, 6]  ← transposed export
-  // Layout C: [num_dets, num_attrs]     e.g. [8400, 6]      ← some exporters drop batch dim
-
   let nDet, nAttr, getRow;
 
   if(dims.length===3){
-    const [batch, d1, d2] = dims;
-    // d1 is attrs if d1 < d2, else d1 is dets
+    const [, d1, d2] = dims;
     if(d1 < d2){
-      // Layout A: [1, attrs, dets]
       nDet=d2; nAttr=d1;
-      getRow = i => {
-        const row=[];
-        for(let a=0;a<nAttr;a++) row.push(data[a*nDet+i]);
-        return row;
-      };
+      getRow = i => { const row=[]; for(let a=0;a<nAttr;a++) row.push(data[a*nDet+i]); return row; };
     } else {
-      // Layout B: [1, dets, attrs]
       nDet=d1; nAttr=d2;
       getRow = i => Array.from(data.slice(i*nAttr, i*nAttr+nAttr));
     }
   } else if(dims.length===2){
-    // Layout C: [dets, attrs]
     nDet=dims[0]; nAttr=dims[1];
     getRow = i => Array.from(data.slice(i*nAttr, i*nAttr+nAttr));
   } else {
@@ -532,22 +791,15 @@ async function infer(src, sW, sH, confTh, iouTh=0.45){
     const row = getRow(i);
     const cx=row[0], cy=row[1], w=row[2], h=row[3];
     if(w<=0||h<=0) continue;
-
-    // Class scores start at index 4
     const scores = row.slice(4);
     if(!scores.length) continue;
-
     let maxS=scores[0], cls=0;
     for(let s=1;s<scores.length;s++) if(scores[s]>maxS){maxS=scores[s];cls=s;}
-
     if(maxS < confTh) continue;
-
-    // Convert letterboxed coords → original image coords
     const x1 = Math.max(0, ((cx - w/2) - pX) / sc);
     const y1 = Math.max(0, ((cy - h/2) - pY) / sc);
     const x2 = Math.min(sW,((cx + w/2) - pX) / sc);
     const y2 = Math.min(sH,((cy + h/2) - pY) / sc);
-
     if(x2>x1 && y2>y1)
       raw.push({ bbox:[x1,y1,x2,y2], conf:maxS, cls });
   }
@@ -562,14 +814,11 @@ function drawBoxes(canvas, src, boxes, W, H){
   boxes.forEach(({bbox,conf,cls})=>{
     const[x1,y1,x2,y2]=bbox, bw=x2-x1, bh=y2-y1;
     const col=CC[cls]||'#fff';
-    // Box
     ctx.strokeStyle=col; ctx.lineWidth=2.5; ctx.strokeRect(x1,y1,bw,bh);
-    // Corner markers
     const cs=Math.min(bw,bh,16); ctx.lineWidth=3;
     [[x1,y1,1,1],[x2,y1,-1,1],[x1,y2,1,-1],[x2,y2,-1,-1]].forEach(([px,py,dx,dy])=>{
       ctx.beginPath(); ctx.moveTo(px+dx*cs,py); ctx.lineTo(px,py); ctx.lineTo(px,py+dy*cs); ctx.stroke();
     });
-    // Label
     const lbl=`${CN[cls]||'?'}  ${(conf*100).toFixed(1)}%`;
     ctx.font='bold 12px Share Tech Mono,monospace';
     const tw=ctx.measureText(lbl).width;
@@ -645,9 +894,12 @@ async function runImg(){
     drawBoxes($('img-canvas'),imgEl,boxes,origW,origH);
     const c={drone:0,person:0};
     boxes.forEach(b=>{const n=CN[b.cls];if(n in c)c[n]++;});
-    $('i-drone').textContent=c.plane; $('i-person').textContent=c.person; $('i-vehicle').textContent=c.vehicle;
+    $('i-drone').textContent=c.drone;
+    $('i-person').textContent=c.person;
     $('i-count').textContent=`${boxes.length} object${boxes.length!==1?'s':''}`;
     $('img-dets').innerHTML=detListHTML(boxes);
+    // Trigger alerts
+    boxes.forEach(b=>{ triggerAlert(CN[b.cls]||'unknown', b.conf, 'IMAGE'); });
     toast(`${boxes.length} detected!`);
   }catch(e){ log(`❌ ${e.message}`,'lerr'); toast('Error','var(--red)'); console.error(e); }
   finally{ $('img-btn').disabled=false; $('img-spin').style.display='none'; }
@@ -658,7 +910,7 @@ function clearImg(){
   const c=$('img-canvas'); c.getContext('2d').clearRect(0,0,c.width,c.height); c.style.display='none';
   $('img-ph').style.display='block';
   $('img-dets').innerHTML='<div style="color:var(--muted);font-family:var(--hud);font-size:11px;text-align:center;padding:14px">No detections yet</div>';
-  ['i-drone','i-person','i-vehicle'].forEach(id=>$(id).textContent='0');
+  ['i-drone','i-person'].forEach(id=>$(id).textContent='0');
   $('i-count').textContent='0 objects';
 }
 
@@ -695,7 +947,7 @@ async function runVid(){
 
   const fps=25, total=Math.floor(vid.duration*fps);
   let frame=0, totalDets=0;
-  const vc={plane:0,person:0,vehicle:0};
+  const vc={drone:0, person:0};
   log(`Processing ${total} frames, skip=${skip}...`,'linf');
 
   const next=async()=>{
@@ -709,8 +961,10 @@ async function runVid(){
         drawBoxes(canvas,vid,boxes,canvas.width,canvas.height);
         totalDets+=boxes.length;
         boxes.forEach(b=>{const n=CN[b.cls];if(n in vc)vc[n]++;});
+        // Alert
+        boxes.forEach(b=>{ triggerAlert(CN[b.cls]||'unknown', b.conf, 'VIDEO'); });
         $('vid-dets').innerHTML=boxes.length
-          ?boxes.map(({conf,cls})=>`<div class="det-item"><span class="dcls cls-${CN[cls]||'plane'}">${(CN[cls]||'?').toUpperCase()}</span><span class="dconf">${(conf*100).toFixed(1)}%</span></div>`).join('')
+          ?boxes.map(({conf,cls})=>`<div class="det-item"><span class="dcls cls-${CN[cls]||'drone'}">${(CN[cls]||'?').toUpperCase()}</span><span class="dconf">${(conf*100).toFixed(1)}%</span></div>`).join('')
           :'<div style="color:var(--muted);font-family:var(--hud);font-size:11px;text-align:center;padding:8px">No objects this frame</div>';
       }catch(e){}
     }
@@ -719,7 +973,7 @@ async function runVid(){
     $('vprog').style.width=pct+'%';
     $('vprog-lbl').textContent=`${frame}/${total} (${pct}%)`;
     $('v-frames').textContent=frame; $('v-total').textContent=totalDets;
-    $('v-drone').textContent=vc.plane; $('v-person').textContent=vc.person;
+    $('v-drone').textContent=vc.drone; $('v-person').textContent=vc.person;
     $('v-flbl').textContent=`Frame ${frame}/${total}`;
     setTimeout(next,0);
   };
@@ -748,6 +1002,7 @@ function clearVid(){
 // ════════════════════════════════════════════════════════
 async function startWC(){
   if(!session){ toast('Load model first!','var(--red)'); return; }
+  initAudio(); // unlock audio context on user gesture
 
   const camIdx = parseInt($('cam-select').value);
   const constraints = {
@@ -760,7 +1015,6 @@ async function startWC(){
   try{
     wcStream = await navigator.mediaDevices.getUserMedia(constraints);
   }catch(e){
-    // fallback: try any camera
     try{ wcStream = await navigator.mediaDevices.getUserMedia({video:true}); }
     catch(e2){ toast('Camera access denied: '+e2.message,'var(--red)'); log(`❌ Camera: ${e2.message}`,'lerr'); return; }
   }
@@ -794,13 +1048,9 @@ async function startWC(){
 
   const loop = () => {
     if(!wcRunning) return;
-
     const ctx = canvas.getContext('2d');
-
-    // Always draw video — never skip this
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Draw last known boxes on top
     lastBoxes.forEach(({bbox,conf,cls})=>{
       const[x1,y1,x2,y2]=bbox, col=CC[cls]||'#fff';
       ctx.strokeStyle=col; ctx.lineWidth=2;
@@ -812,7 +1062,6 @@ async function startWC(){
       ctx.fillStyle='#000'; ctx.fillText(lbl,x1+4,y1-4);
     });
 
-    // FPS
     wcFpsCount++; wcFrameCount++; frameCount++;
     const now = Date.now();
     if(now-wcFpsTimer >= 1000){
@@ -822,10 +1071,8 @@ async function startWC(){
       wcFpsCount=0; wcFpsTimer=now;
     }
 
-    // Run inference every 6 frames only, and only if not already running
     if(frameCount % 6 === 0 && !inferBusy){
       inferBusy = true;
-      // Capture current frame to offscreen canvas so video keeps playing
       const off = document.createElement('canvas');
       off.width=canvas.width; off.height=canvas.height;
       off.getContext('2d').drawImage(video,0,0,off.width,off.height);
@@ -834,20 +1081,18 @@ async function startWC(){
         .then(boxes=>{
           if(!wcRunning){ inferBusy=false; return; }
           lastBoxes = boxes;
-          // Update counts
-          boxes.forEach(b=>{ const n=CN[b.cls]; if(n in wcCounts) wcCounts[n]++; });
-          $('wc-drone').textContent   = wcCounts.plane||0;
+          boxes.forEach(b=>{const n=CN[b.cls]; if(n in wcCounts) wcCounts[n]++;});
+          // Trigger alerts for each detected object
+          boxes.forEach(b=>{ triggerAlert(CN[b.cls]||'unknown', b.conf, 'WEBCAM'); });
+          $('wc-drone').textContent   = wcCounts.drone||0;
           $('wc-person').textContent  = wcCounts.person||0;
-          $('wc-vehicle').textContent = wcCounts.vehicle||0;
-          // Tags
           const tc={};
           boxes.forEach(b=>{ const n=CN[b.cls]||'?'; tc[n]=(tc[n]||0)+1; });
           $('wc-tags').innerHTML=Object.entries(tc).map(([n,c])=>
             `<div class="wc-tag ${n}">${n.toUpperCase()} ${c}</div>`).join('');
-          // Det list
           $('wc-dets').innerHTML=boxes.length
             ?boxes.map(({conf,cls})=>`<div class="det-item">
-                <span class="dcls cls-${CN[cls]||'plane'}">${(CN[cls]||'?').toUpperCase()}</span>
+                <span class="dcls cls-${CN[cls]||'drone'}">${(CN[cls]||'?').toUpperCase()}</span>
                 <span class="dconf">${(conf*100).toFixed(1)}%</span>
               </div>`).join('')
             :'<div style="color:var(--muted);font-family:var(--hud);font-size:11px;text-align:center;padding:10px">No objects</div>';
@@ -874,14 +1119,15 @@ function stopWC(){
   $('wc-tags').innerHTML='';
   $('wc-start').disabled=false; $('wc-stop').disabled=true;
   $('wc-dets').innerHTML='<div style="color:var(--muted);font-family:var(--hud);font-size:11px;text-align:center;padding:14px">Camera stopped</div>';
+  stopAlarm();
   log('Camera stopped','lerr');
   toast('Camera stopped','var(--red)');
 }
 
 function resetWC(){
-  wcCounts={plane:0,person:0,vehicle:0};
+  wcCounts={drone:0,person:0};
   wcFrameCount=0;
-  $('wc-drone').textContent='0'; $('wc-person').textContent='0'; $('wc-vehicle').textContent='0';
+  $('wc-drone').textContent='0'; $('wc-person').textContent='0';
   $('wc-frame-cnt').textContent='0';
 }
 </script>
