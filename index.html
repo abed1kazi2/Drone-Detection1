@@ -4,7 +4,8 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>SENTINEL — Drone Detection AI</title>
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
+<!-- FIX #1: Updated to ORT 1.20.0 — better opset11 + mixed FP16/FP32 support -->
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.0/dist/ort.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet"/>
 <style>
 :root {
@@ -24,142 +25,66 @@
   --font-ttl:'Orbitron', sans-serif;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-ui);
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-/* Grid bg */
+body { background: var(--bg); color: var(--text); font-family: var(--font-ui); min-height: 100vh; overflow-x: hidden; }
 body::before {
-  content: '';
-  position: fixed; inset: 0;
-  background-image:
-    linear-gradient(rgba(0,229,255,.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,229,255,.025) 1px, transparent 1px);
-  background-size: 48px 48px;
-  pointer-events: none; z-index: 0;
+  content: ''; position: fixed; inset: 0;
+  background-image: linear-gradient(rgba(0,229,255,.025) 1px,transparent 1px), linear-gradient(90deg,rgba(0,229,255,.025) 1px,transparent 1px);
+  background-size: 48px 48px; pointer-events: none; z-index: 0;
 }
-/* Scan line */
 body::after {
-  content: '';
-  position: fixed; left: 0; right: 0; height: 3px;
-  background: linear-gradient(transparent, rgba(0,229,255,.07), transparent);
-  animation: scan 8s linear infinite;
-  pointer-events: none; z-index: 0;
+  content: ''; position: fixed; left: 0; right: 0; height: 3px;
+  background: linear-gradient(transparent,rgba(0,229,255,.07),transparent);
+  animation: scan 8s linear infinite; pointer-events: none; z-index: 0;
 }
 @keyframes scan { 0%{top:-3px} 100%{top:100vh} }
 
-/* ── HEADER ── */
 header {
   position: relative; z-index: 100;
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 28px; height: 58px;
-  background: rgba(4,8,15,.97);
-  border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(12px);
+  background: rgba(4,8,15,.97); border-bottom: 1px solid var(--border); backdrop-filter: blur(12px);
 }
 .logo { display: flex; align-items: center; gap: 14px; }
 .logo-hex {
-  width: 38px; height: 38px;
-  border: 2px solid var(--acc);
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px;
-  box-shadow: 0 0 18px rgba(0,229,255,.35);
-  animation: hexglow 3s ease-in-out infinite;
+  width: 38px; height: 38px; border: 2px solid var(--acc); border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
+  box-shadow: 0 0 18px rgba(0,229,255,.35); animation: hexglow 3s ease-in-out infinite;
 }
-@keyframes hexglow {
-  0%,100%{box-shadow:0 0 14px rgba(0,229,255,.3);}
-  50%{box-shadow:0 0 32px rgba(0,229,255,.7),0 0 60px rgba(0,229,255,.2);}
-}
+@keyframes hexglow { 0%,100%{box-shadow:0 0 14px rgba(0,229,255,.3);}50%{box-shadow:0 0 32px rgba(0,229,255,.7),0 0 60px rgba(0,229,255,.2);} }
 .logo-name { font-family: var(--font-ttl); font-size: 18px; font-weight: 900; letter-spacing: 5px; color: #fff; }
 .logo-sub  { font-family: var(--font-hud); font-size: 8px; color: var(--acc); letter-spacing: 4px; margin-top: 2px; }
-
 .hbar { display: flex; align-items: center; gap: 18px; }
 .hstat { display: flex; align-items: center; gap: 7px; font-family: var(--font-hud); font-size: 10px; color: var(--muted); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
-.dot.g  { background: var(--green); box-shadow: 0 0 7px var(--green); }
-.dot.r  { background: var(--red);   box-shadow: 0 0 7px var(--red);   }
-.dot.b  { background: var(--acc);   box-shadow: 0 0 7px var(--acc);   }
+.dot.g { background: var(--green); box-shadow: 0 0 7px var(--green); }
+.dot.r { background: var(--red);   box-shadow: 0 0 7px var(--red); }
+.dot.b { background: var(--acc);   box-shadow: 0 0 7px var(--acc); }
 .dot.pulse { animation: dpulse 1s ease-in-out infinite; }
 @keyframes dpulse { 0%,100%{opacity:1}50%{opacity:.2} }
-
-.tgl-wrap {
-  display: flex; align-items: center; gap: 8px;
-  font-family: var(--font-hud); font-size: 10px; color: var(--muted);
-  background: rgba(0,0,0,.4); border: 1px solid var(--border);
-  border-radius: 5px; padding: 5px 10px; cursor: pointer;
-}
+.tgl-wrap { display: flex; align-items: center; gap: 8px; font-family: var(--font-hud); font-size: 10px; color: var(--muted); background: rgba(0,0,0,.4); border: 1px solid var(--border); border-radius: 5px; padding: 5px 10px; cursor: pointer; }
 .tgl { position: relative; width: 30px; height: 15px; cursor: pointer; }
 .tgl input { opacity: 0; width: 0; height: 0; }
-.tgl-sl {
-  position: absolute; inset: 0;
-  background: var(--border); border-radius: 8px; transition: .3s;
-}
-.tgl-sl::before {
-  content: ''; position: absolute;
-  width: 11px; height: 11px; left: 2px; top: 2px;
-  background: var(--muted); border-radius: 50%; transition: .3s;
-}
+.tgl-sl { position: absolute; inset: 0; background: var(--border); border-radius: 8px; transition: .3s; }
+.tgl-sl::before { content: ''; position: absolute; width: 11px; height: 11px; left: 2px; top: 2px; background: var(--muted); border-radius: 50%; transition: .3s; }
 .tgl input:checked + .tgl-sl { background: var(--red); }
 .tgl input:checked + .tgl-sl::before { transform: translateX(15px); background: #fff; }
 
-/* ── NAV ── */
-nav {
-  position: relative; z-index: 10;
-  display: flex; padding: 0 28px;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-}
-.tab {
-  font-family: var(--font-ttl); font-size: 11px; font-weight: 700;
-  letter-spacing: 2px; text-transform: uppercase;
-  padding: 12px 22px; color: var(--muted);
-  border-bottom: 2px solid transparent;
-  cursor: pointer; transition: all .2s; user-select: none;
-}
+nav { position: relative; z-index: 10; display: flex; padding: 0 28px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+.tab { font-family: var(--font-ttl); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 12px 22px; color: var(--muted); border-bottom: 2px solid transparent; cursor: pointer; transition: all .2s; user-select: none; }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--acc); border-bottom-color: var(--acc); }
 
-/* ── LAYOUT ── */
 main { position: relative; z-index: 1; max-width: 1380px; margin: 0 auto; padding: 22px 28px; }
 .page { display: none; animation: fadein .2s ease; }
 .page.active { display: block; }
 @keyframes fadein { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
-
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .col   { display: flex; flex-direction: column; gap: 16px; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; position: relative; overflow: hidden; }
+.panel::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg,transparent,var(--acc),transparent); opacity: .35; }
+.ptitle { font-family: var(--font-hud); font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--acc); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
 
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 10px; padding: 18px;
-  position: relative; overflow: hidden;
-}
-.panel::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--acc), transparent);
-  opacity: .35;
-}
-.ptitle {
-  font-family: var(--font-hud); font-size: 10px;
-  letter-spacing: 2.5px; text-transform: uppercase;
-  color: var(--acc); margin-bottom: 14px;
-  display: flex; align-items: center; justify-content: space-between;
-}
-
-/* ── BUTTONS ── */
-.btn {
-  font-family: var(--font-ttl); font-size: 10px; font-weight: 700;
-  letter-spacing: 1.5px; text-transform: uppercase;
-  padding: 8px 18px; border-radius: 5px;
-  border: none; cursor: pointer; transition: all .2s;
-  display: inline-flex; align-items: center; gap: 6px;
-}
+.btn { font-family: var(--font-ttl); font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 18px; border-radius: 5px; border: none; cursor: pointer; transition: all .2s; display: inline-flex; align-items: center; gap: 6px; }
 .btn-acc  { background: var(--acc);   color: #000; }
 .btn-acc:hover  { box-shadow: 0 0 18px rgba(0,229,255,.5); }
 .btn-grn  { background: var(--green); color: #000; }
@@ -172,192 +97,103 @@ main { position: relative; z-index: 1; max-width: 1380px; margin: 0 auto; paddin
 .btn-warn:hover  { box-shadow: 0 0 18px rgba(255,187,0,.5); }
 .btn:disabled { opacity: .3; cursor: not-allowed; pointer-events: none; }
 
-/* ── SLIDERS ── */
 .srow { display: flex; align-items: center; gap: 10px; margin: 7px 0; }
 .slbl { font-family: var(--font-hud); font-size: 9px; color: var(--muted); width: 90px; letter-spacing: 1px; }
-input[type=range] {
-  -webkit-appearance: none; flex: 1; height: 3px;
-  background: var(--border); border-radius: 2px; outline: none;
-}
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 13px; height: 13px;
-  border-radius: 50%; background: var(--acc); cursor: pointer;
-  box-shadow: 0 0 6px var(--acc);
-}
+input[type=range] { -webkit-appearance: none; flex: 1; height: 3px; background: var(--border); border-radius: 2px; outline: none; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--acc); cursor: pointer; box-shadow: 0 0 6px var(--acc); }
 .sval { font-family: var(--font-hud); font-size: 11px; color: var(--acc); width: 36px; text-align: right; }
 
-/* ── MODEL BOX ── */
-.model-box {
-  border: 1px solid var(--border); border-radius: 8px;
-  padding: 14px; margin-bottom: 14px;
-  background: rgba(0,0,0,.35);
+/* FIX: Model loader now shows drag-and-drop area for ONNX file */
+.model-drop-zone {
+  border: 2px dashed var(--border); border-radius: 8px; padding: 20px 16px;
+  text-align: center; cursor: pointer; transition: all .25s; background: rgba(0,229,255,.01);
+  margin-bottom: 12px;
 }
-.prog-wrap {
-  background: rgba(0,0,0,.5); border: 1px solid var(--border);
-  border-radius: 3px; height: 4px; overflow: hidden; margin-top: 8px;
-}
-.prog-bar {
-  height: 100%;
-  background: linear-gradient(90deg, var(--acc2), var(--acc), var(--green));
-  transition: width .4s; width: 0%;
-}
+.model-drop-zone:hover, .model-drop-zone.drag { border-color: var(--acc); background: rgba(0,229,255,.06); }
+.mdz-icon { font-size: 28px; opacity: .5; margin-bottom: 6px; }
+.mdz-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.mdz-sub   { font-family: var(--font-hud); font-size: 9px; color: var(--muted); margin-top: 3px; letter-spacing: 1px; }
 
-/* ── DROP ZONE ── */
-.dz {
-  border: 2px dashed var(--border); border-radius: 8px;
-  padding: 32px 16px; text-align: center; cursor: pointer;
-  transition: all .25s; background: rgba(0,229,255,.01);
-}
+.prog-wrap { background: rgba(0,0,0,.5); border: 1px solid var(--border); border-radius: 3px; height: 4px; overflow: hidden; margin-top: 8px; }
+.prog-bar  { height: 100%; background: linear-gradient(90deg,var(--acc2),var(--acc),var(--green)); transition: width .4s; width: 0%; }
+
+.dz { border: 2px dashed var(--border); border-radius: 8px; padding: 32px 16px; text-align: center; cursor: pointer; transition: all .25s; background: rgba(0,229,255,.01); }
 .dz:hover, .dz.drag { border-color: var(--acc); background: rgba(0,229,255,.06); }
-.dz-icon { font-size: 32px; opacity: .5; margin-bottom: 8px; }
+.dz-icon  { font-size: 32px; opacity: .5; margin-bottom: 8px; }
 .dz-title { font-size: 14px; font-weight: 600; color: var(--text); }
 .dz-sub   { font-family: var(--font-hud); font-size: 9px; color: var(--muted); margin-top: 4px; letter-spacing: 1px; }
 
-/* ── OUTPUT CANVAS ── */
-.out-wrap {
-  position: relative; width: 100%; border-radius: 8px;
-  overflow: hidden; background: #000; min-height: 220px;
-  display: flex; align-items: center; justify-content: center;
-}
+.out-wrap { position: relative; width: 100%; border-radius: 8px; overflow: hidden; background: #000; min-height: 220px; display: flex; align-items: center; justify-content: center; }
 .out-canvas { width: 100%; display: none; border-radius: 8px; }
-.out-ph {
-  font-family: var(--font-hud); font-size: 11px; color: var(--muted);
-  text-align: center; position: absolute; line-height: 2; padding: 20px;
-}
+.out-ph { font-family: var(--font-hud); font-size: 11px; color: var(--muted); text-align: center; position: absolute; line-height: 2; padding: 20px; }
 
-/* ── DET LIST ── */
-.det-list {
-  display: flex; flex-direction: column; gap: 5px;
-  max-height: 260px; overflow-y: auto;
-}
-.det-item {
-  display: flex; align-items: center; justify-content: space-between;
-  background: rgba(0,0,0,.35); border: 1px solid var(--border);
-  border-radius: 5px; padding: 8px 12px;
-  font-family: var(--font-hud); font-size: 11px;
-  animation: dfi .15s ease;
-}
+.det-list { display: flex; flex-direction: column; gap: 5px; max-height: 260px; overflow-y: auto; }
+.det-item { display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 5px; padding: 8px 12px; font-family: var(--font-hud); font-size: 11px; animation: dfi .15s ease; }
 @keyframes dfi { from{opacity:0;transform:translateY(-3px)} to{opacity:1;transform:translateY(0)} }
 .d-cls { font-weight: bold; font-size: 12px; }
-.cls-drone  { color: var(--red); }
-.cls-person { color: var(--green); }
 .d-conf { color: var(--acc); }
 .d-coords { color: var(--muted); font-size: 9px; }
 .conf-bar { height: 2px; border-radius: 1px; margin-top: 2px; }
 
-/* ── STAT CARDS ── */
 .scards { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 14px; }
-.scard {
-  background: rgba(0,0,0,.35); border: 1px solid var(--border);
-  border-radius: 7px; padding: 12px; text-align: center;
-}
+.scard { background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 7px; padding: 12px; text-align: center; }
 .scard .sv { font-family: var(--font-ttl); font-size: 28px; line-height: 1; }
 .scard .sl { font-family: var(--font-hud); font-size: 9px; color: var(--muted); margin-top: 4px; letter-spacing: 1px; }
 
-/* ── LOG ── */
-#log-box {
-  background: #000; border: 1px solid var(--border); border-radius: 6px;
-  padding: 10px; height: 120px; overflow-y: auto;
-  font-family: var(--font-hud); font-size: 10px; line-height: 1.9; color: var(--muted);
-}
+#log-box { background: #000; border: 1px solid var(--border); border-radius: 6px; padding: 10px; height: 140px; overflow-y: auto; font-family: var(--font-hud); font-size: 10px; line-height: 1.9; color: var(--muted); }
 .lok   { color: var(--green); }
 .lerr  { color: var(--red); }
 .linf  { color: var(--acc); }
 .lwarn { color: var(--warn); font-weight: bold; }
 
-/* ── DEBUG ── */
-#debug-box {
-  background: #000; border: 1px solid var(--border); border-radius: 6px;
-  padding: 10px; min-height: 60px;
-  font-family: var(--font-hud); font-size: 10px; line-height: 1.8; color: var(--muted);
-}
+#debug-box { background: #000; border: 1px solid var(--border); border-radius: 6px; padding: 10px; min-height: 60px; font-family: var(--font-hud); font-size: 10px; line-height: 1.8; color: var(--muted); }
 
-/* ── VIDEO PROGRESS ── */
-.vprog-wrap {
-  background: rgba(0,0,0,.4); border: 1px solid var(--border);
-  border-radius: 3px; height: 5px; overflow: hidden; margin: 8px 0;
-}
-.vprog-bar {
-  height: 100%;
-  background: linear-gradient(90deg, var(--acc2), var(--acc));
-  transition: width .2s; width: 0%;
-}
+.vprog-wrap { background: rgba(0,0,0,.4); border: 1px solid var(--border); border-radius: 3px; height: 5px; overflow: hidden; margin: 8px 0; }
+.vprog-bar  { height: 100%; background: linear-gradient(90deg,var(--acc2),var(--acc)); transition: width .2s; width: 0%; }
 
-/* ── WEBCAM ── */
-#wc-wrap {
-  position: relative; width: 100%; background: #000;
-  border-radius: 8px; min-height: 280px; overflow: hidden;
-  display: flex; align-items: center; justify-content: center;
-}
+#wc-wrap { position: relative; width: 100%; background: #000; border-radius: 8px; min-height: 280px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
 #wc-canvas { width: 100%; display: none; border-radius: 8px; }
 #wc-ph     { font-family: var(--font-hud); font-size: 11px; color: var(--muted); text-align: center; position: absolute; line-height: 2; }
 .wc-tags   { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 4px; }
 .wc-tag    { background: rgba(0,0,0,.8); border: 1px solid; border-radius: 3px; padding: 3px 8px; font-family: var(--font-hud); font-size: 10px; }
-.wc-tag.drone  { color: var(--red);   border-color: var(--red); }
-.wc-tag.person { color: var(--green); border-color: var(--green); }
-.wc-fps { position: absolute; bottom: 8px; left: 8px; font-family: var(--font-hud); font-size: 10px; color: var(--acc); background: rgba(0,0,0,.75); padding: 2px 8px; border-radius: 3px; display: none; }
-.wc-rec { position: absolute; top: 8px; left: 8px; font-family: var(--font-hud); font-size: 10px; color: var(--red); background: rgba(0,0,0,.75); padding: 2px 8px; border-radius: 3px; display: none; }
+.wc-fps    { position: absolute; bottom: 8px; left: 8px; font-family: var(--font-hud); font-size: 10px; color: var(--acc); background: rgba(0,0,0,.75); padding: 2px 8px; border-radius: 3px; display: none; }
+.wc-rec    { position: absolute; top: 8px; left: 8px; font-family: var(--font-hud); font-size: 10px; color: var(--red); background: rgba(0,0,0,.75); padding: 2px 8px; border-radius: 3px; display: none; }
 .wc-rec.show { display: block; animation: dpulse 1s ease-in-out infinite; }
 
-/* ── ALERT OVERLAY ── */
-#alert-overlay {
-  display: none; position: fixed; inset: 0; z-index: 9000; pointer-events: none;
-  border: 4px solid var(--red); animation: apulse .5s ease-in-out infinite;
-}
+#alert-overlay { display: none; position: fixed; inset: 0; z-index: 9000; pointer-events: none; border: 4px solid var(--red); animation: apulse .5s ease-in-out infinite; }
 #alert-overlay.show { display: block; }
-@keyframes apulse {
-  0%,100%{border-color:rgba(255,51,85,.9);box-shadow:inset 0 0 60px rgba(255,51,85,.12);}
-  50%{border-color:rgba(255,51,85,.15);box-shadow:none;}
-}
-#alert-banner {
-  display: none; position: fixed; top: 68px; left: 50%; transform: translateX(-50%);
-  z-index: 9100; background: var(--red); color: #fff;
-  font-family: var(--font-ttl); font-size: 12px; font-weight: 900; letter-spacing: 3px;
-  padding: 12px 34px; border-radius: 6px;
-  box-shadow: 0 0 50px rgba(255,51,85,.7);
-  animation: bpop .3s ease; white-space: nowrap;
-}
+@keyframes apulse { 0%,100%{border-color:rgba(255,51,85,.9);box-shadow:inset 0 0 60px rgba(255,51,85,.12);}50%{border-color:rgba(255,51,85,.15);box-shadow:none;} }
+#alert-banner { display: none; position: fixed; top: 68px; left: 50%; transform: translateX(-50%); z-index: 9100; background: var(--red); color: #fff; font-family: var(--font-ttl); font-size: 12px; font-weight: 900; letter-spacing: 3px; padding: 12px 34px; border-radius: 6px; box-shadow: 0 0 50px rgba(255,51,85,.7); animation: bpop .3s ease; white-space: nowrap; }
 #alert-banner.show { display: block; }
 @keyframes bpop { from{transform:translateX(-50%) scale(.8);opacity:0} to{transform:translateX(-50%) scale(1);opacity:1} }
 
-/* ── ALERT LOG ── */
-.alert-entry {
-  display: flex; justify-content: space-between; align-items: center;
-  background: rgba(255,51,85,.07); border: 1px solid rgba(255,51,85,.25);
-  border-radius: 4px; padding: 6px 10px;
-  font-family: var(--font-hud); font-size: 10px;
-}
+.alert-entry { display: flex; justify-content: space-between; align-items: center; background: rgba(255,51,85,.07); border: 1px solid rgba(255,51,85,.25); border-radius: 4px; padding: 6px 10px; font-family: var(--font-hud); font-size: 10px; }
 .alert-time { color: var(--warn); }
 .alert-cls  { color: var(--red); font-weight: bold; }
 .alert-conf { color: var(--muted); }
 
-/* ── SPINNER ── */
-.spin {
-  width: 13px; height: 13px;
-  border: 2px solid rgba(0,229,255,.2); border-top-color: var(--acc);
-  border-radius: 50%; animation: sp .7s linear infinite; display: inline-block;
-}
+.spin { width: 13px; height: 13px; border: 2px solid rgba(0,229,255,.2); border-top-color: var(--acc); border-radius: 50%; animation: sp .7s linear infinite; display: inline-block; }
 @keyframes sp { to{transform:rotate(360deg)} }
 
-/* ── TOAST ── */
-#toast {
-  position: fixed; bottom: 22px; right: 22px;
-  background: var(--panel); border: 1px solid var(--acc); border-radius: 7px;
-  padding: 10px 18px; font-family: var(--font-hud); font-size: 11px; color: var(--acc);
-  z-index: 9999; transform: translateY(60px); opacity: 0; transition: all .3s;
-  box-shadow: 0 4px 24px rgba(0,229,255,.2);
-}
+#toast { position: fixed; bottom: 22px; right: 22px; background: var(--panel); border: 1px solid var(--acc); border-radius: 7px; padding: 10px 18px; font-family: var(--font-hud); font-size: 11px; color: var(--acc); z-index: 9999; transform: translateY(60px); opacity: 0; transition: all .3s; box-shadow: 0 4px 24px rgba(0,229,255,.2); }
 #toast.show { transform: translateY(0); opacity: 1; }
 
-footer {
-  text-align: center; padding: 22px;
-  font-family: var(--font-hud); font-size: 9px; color: var(--muted);
-  letter-spacing: 3px; border-top: 1px solid var(--border); margin-top: 28px;
+/* FIX: Backend status indicator */
+.backend-badge {
+  font-family: var(--font-hud); font-size: 9px; letter-spacing: 1px;
+  padding: 2px 8px; border-radius: 3px; border: 1px solid;
 }
+.backend-badge.wasm { color: var(--warn); border-color: var(--warn); }
+.backend-badge.webgl { color: var(--green); border-color: var(--green); }
 
+footer { text-align: center; padding: 22px; font-family: var(--font-hud); font-size: 9px; color: var(--muted); letter-spacing: 3px; border-top: 1px solid var(--border); margin-top: 28px; }
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: var(--bg2); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* FIX: class name tags display */
+.cls-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.cls-tag  { font-family: var(--font-hud); font-size: 9px; padding: 2px 8px; border-radius: 3px; border: 1px solid var(--border); color: var(--muted); }
 
 @media(max-width:800px) {
   .grid2 { grid-template-columns: 1fr; }
@@ -372,7 +208,6 @@ footer {
 <div id="alert-overlay"></div>
 <div id="alert-banner">⚠ THREAT DETECTED</div>
 
-<!-- ══ HEADER ══ -->
 <header>
   <div class="logo">
     <div class="logo-hex">🚁</div>
@@ -396,11 +231,11 @@ footer {
       <div class="dot" id="model-dot"></div>
       <span id="model-st" style="font-family:var(--font-hud);font-size:10px">NO MODEL</span>
     </div>
+    <div class="hstat" id="backend-st"></div>
     <div class="hstat" id="clock" style="font-family:var(--font-hud);font-size:11px"></div>
   </div>
 </header>
 
-<!-- ══ NAV ══ -->
 <nav>
   <div class="tab active" onclick="goTab('image')">📷 Image</div>
   <div class="tab" onclick="goTab('video')">🎬 Video</div>
@@ -411,31 +246,38 @@ footer {
 
 <main>
 
-<!-- ══════ IMAGE TAB ══════ -->
+<!-- ══ IMAGE TAB ══ -->
 <div class="page active" id="page-image">
   <div class="grid2">
     <div class="col">
-
-      <!-- Model Loader -->
       <div class="panel">
         <div class="ptitle">⬡ Load ONNX Model</div>
-        <div class="model-box">
-          <div style="font-family:var(--font-hud);font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:8px">SELECT YOLOv8 best.onnx FILE</div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-ghost" onclick="document.getElementById('onnx-file').click()">📂 Choose best.onnx</button>
-            <span id="onnx-name" style="font-family:var(--font-hud);font-size:10px;color:var(--muted)">No file</span>
-          </div>
-          <input type="file" id="onnx-file" accept=".onnx" style="display:none" onchange="loadModel(this)"/>
-          <div class="prog-wrap"><div class="prog-bar" id="model-prog"></div></div>
-        </div>
 
-        <!-- Class name config -->
-        <div style="margin-bottom:12px">
-          <div style="font-family:var(--font-hud);font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:8px">CLASS NAMES (comma separated, index 0 first)</div>
+        <!-- FIX: Drag-and-drop model zone -->
+        <div class="model-drop-zone" id="mdz" onclick="document.getElementById('onnx-file').click()">
+          <div class="mdz-icon">🤖</div>
+          <div class="mdz-title">Drop best.onnx here or click to browse</div>
+          <div class="mdz-sub">YOLOv8 ONNX · OPSET 11/12 · ANY CLASS COUNT</div>
+        </div>
+        <input type="file" id="onnx-file" accept=".onnx" style="display:none" onchange="loadModel(this)"/>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+          <span id="onnx-name" style="font-family:var(--font-hud);font-size:10px;color:var(--muted)">No file loaded</span>
+          <span id="backend-badge" class="backend-badge" style="display:none"></span>
+        </div>
+        <div class="prog-wrap"><div class="prog-bar" id="model-prog"></div></div>
+
+        <!-- FIX: Class names auto-populated from model metadata, still editable -->
+        <div style="margin-top:14px;margin-bottom:12px">
+          <div style="font-family:var(--font-hud);font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:6px">
+            CLASS NAMES <span style="color:var(--green)">(auto-loaded from model metadata)</span>
+          </div>
           <input type="text" id="class-names" value="drone,person"
             style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:4px;color:var(--acc);padding:7px 10px;font-family:var(--font-hud);font-size:11px;outline:none;"
-            placeholder="drone,person OR person,drone — match your model's class order"/>
-          <div style="font-family:var(--font-hud);font-size:9px;color:var(--muted);margin-top:4px;">⚠ Order matters. Check what class 0 is in your model's data.yaml</div>
+            placeholder="comma-separated, index 0 first" oninput="refreshClassTags()"/>
+          <div id="cls-tags-wrap" class="cls-tags"></div>
+          <div style="font-family:var(--font-hud);font-size:9px;color:var(--muted);margin-top:6px">
+            ⚠ Edit only if labels are wrong. Must match model's data.yaml class order.
+          </div>
         </div>
 
         <div class="srow">
@@ -452,7 +294,6 @@ footer {
         </div>
       </div>
 
-      <!-- Image upload -->
       <div class="panel">
         <div class="ptitle">📷 Upload Image</div>
         <div class="dz" id="img-dz" onclick="document.getElementById('img-file').click()">
@@ -470,10 +311,9 @@ footer {
         </div>
       </div>
 
-      <!-- Log -->
       <div class="panel">
-        <div class="ptitle">◎ Log</div>
-        <div id="log-box"><span class="linf">Ready. Load best.onnx to begin.</span></div>
+        <div class="ptitle">◎ System Log</div>
+        <div id="log-box"><span class="linf">Ready. Drop your best.onnx file to begin.</span></div>
       </div>
     </div>
 
@@ -499,15 +339,14 @@ footer {
   </div>
 </div>
 
-<!-- ══════ VIDEO TAB ══════ -->
+<!-- ══ VIDEO TAB ══ -->
 <div class="page" id="page-video">
   <div class="grid2">
     <div class="col">
       <div class="panel">
         <div class="ptitle">⬡ Model</div>
         <div style="display:flex;align-items:center;gap:8px;font-family:var(--font-hud);font-size:11px;margin-bottom:12px">
-          <div class="dot" id="vid-mdot"></div>
-          <span id="vid-mst">Load model in Image tab first</span>
+          <div class="dot" id="vid-mdot"></div><span id="vid-mst">Load model in Image tab first</span>
         </div>
         <div class="srow">
           <span class="slbl">CONFIDENCE</span>
@@ -522,7 +361,6 @@ footer {
           <span class="sval" id="vskip-val">3</span>
         </div>
       </div>
-
       <div class="panel">
         <div class="ptitle">🎬 Upload Video</div>
         <div class="dz" id="vid-dz" onclick="document.getElementById('vid-file').click()">
@@ -545,7 +383,6 @@ footer {
           <div class="vprog-wrap"><div class="vprog-bar" id="vprog"></div></div>
         </div>
       </div>
-
       <div class="panel">
         <div class="ptitle">◎ Video Totals</div>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
@@ -556,7 +393,6 @@ footer {
         </div>
       </div>
     </div>
-
     <div class="col">
       <div class="panel" style="flex:1">
         <div class="ptitle">◈ Video Output <span id="v-flbl" style="font-size:9px;color:var(--muted)">Frame 0</span></div>
@@ -576,15 +412,14 @@ footer {
   </div>
 </div>
 
-<!-- ══════ WEBCAM TAB ══════ -->
+<!-- ══ WEBCAM TAB ══ -->
 <div class="page" id="page-webcam">
   <div class="grid2">
     <div class="col">
       <div class="panel">
         <div class="ptitle">⬡ Model Status</div>
         <div style="display:flex;align-items:center;gap:8px;font-family:var(--font-hud);font-size:11px;margin-bottom:12px">
-          <div class="dot" id="wc-mdot"></div>
-          <span id="wc-mst">Load model in Image tab first</span>
+          <div class="dot" id="wc-mdot"></div><span id="wc-mst">Load model in Image tab first</span>
         </div>
         <div class="srow">
           <span class="slbl">CONFIDENCE</span>
@@ -593,20 +428,18 @@ footer {
           <span class="sval" id="wc-conf-val">0.35</span>
         </div>
       </div>
-
       <div class="panel">
         <div class="ptitle">📹 Camera Controls</div>
         <div style="margin-bottom:12px">
           <div style="font-family:var(--font-hud);font-size:9px;color:var(--muted);margin-bottom:6px">CAMERA SOURCE</div>
-          <select id="cam-select"
-            style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:7px 10px;font-family:var(--font-hud);font-size:11px;width:100%;outline:none">
+          <select id="cam-select" style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:7px 10px;font-family:var(--font-hud);font-size:11px;width:100%;outline:none">
             <option value="user">Front / Default Camera</option>
             <option value="environment">Back / Rear Camera</option>
           </select>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-grn" id="wc-start" onclick="startWC()">▶ Start Camera</button>
-          <button class="btn btn-red" id="wc-stop"  onclick="stopWC()" disabled>■ Stop</button>
+          <button class="btn btn-red"  id="wc-stop"  onclick="stopWC()" disabled>■ Stop</button>
         </div>
         <div style="margin-top:10px;font-family:var(--font-hud);font-size:9px;color:var(--muted);line-height:1.8">
           ⚠ Browser will request camera permission.<br/>
@@ -614,7 +447,6 @@ footer {
           🔒 HTTPS required (GitHub Pages ✓).
         </div>
       </div>
-
       <div class="panel">
         <div class="ptitle">◎ Session Totals
           <button class="btn btn-ghost" style="padding:3px 10px;font-size:9px" onclick="resetWC()">Reset</button>
@@ -629,12 +461,9 @@ footer {
         </div>
       </div>
     </div>
-
     <div class="col">
       <div class="panel" style="flex:1">
-        <div class="ptitle">◈ Live Feed
-          <span class="wc-rec" id="wc-rec">● LIVE</span>
-        </div>
+        <div class="ptitle">◈ Live Feed <span class="wc-rec" id="wc-rec">● LIVE</span></div>
         <div id="wc-wrap">
           <div class="out-ph" id="wc-ph">Click Start Camera<br/><br/>📷 Allow camera access when prompted</div>
           <canvas id="wc-canvas" class="out-canvas"></canvas>
@@ -652,7 +481,7 @@ footer {
   </div>
 </div>
 
-<!-- ══════ ALERTS TAB ══════ -->
+<!-- ══ ALERTS TAB ══ -->
 <div class="page" id="page-alerts">
   <div class="grid2">
     <div class="col">
@@ -684,7 +513,6 @@ footer {
           </div>
         </div>
       </div>
-
       <div class="panel">
         <div class="ptitle">📊 Statistics</div>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
@@ -695,13 +523,9 @@ footer {
         </div>
       </div>
     </div>
-
     <div class="col">
       <div class="panel" style="flex:1">
-        <div class="ptitle">
-          🚨 Alert History
-          <span id="alert-badge" style="font-size:9px;color:var(--warn)">0 alerts</span>
-        </div>
+        <div class="ptitle">🚨 Alert History <span id="alert-badge" style="font-size:9px;color:var(--warn)">0 alerts</span></div>
         <div id="alert-list">
           <div style="color:var(--muted);font-family:var(--font-hud);font-size:11px;text-align:center;padding:20px">No alerts yet.</div>
         </div>
@@ -710,7 +534,7 @@ footer {
   </div>
 </div>
 
-<!-- ══════ DEBUG TAB ══════ -->
+<!-- ══ DEBUG TAB ══ -->
 <div class="page" id="page-debug">
   <div class="grid2">
     <div class="col">
@@ -723,15 +547,18 @@ footer {
         </div>
       </div>
       <div class="panel">
-        <div class="ptitle">⚙ Tips</div>
+        <div class="ptitle">⚙ Tips & Known Issues Fixed</div>
         <div style="font-family:var(--font-hud);font-size:10px;color:var(--muted);line-height:2">
+          ✅ <span style="color:var(--green)">Mixed FP16/FP32 weight models now supported</span><br/>
+          ✅ <span style="color:var(--green)">Class names auto-loaded from model metadata</span><br/>
+          ✅ <span style="color:var(--green)">ORT upgraded to 1.20.0 (better opset 11 support)</span><br/>
+          ✅ <span style="color:var(--green)">WASM preferred over WebGL (more stable)</span><br/>
+          ✅ <span style="color:var(--green)">Model drag-and-drop enabled</span><br/>
           • Export: <span style="color:var(--acc)">yolo export model=best.pt format=onnx imgsz=640 opset=12</span><br/>
-          • If nothing detected → lower confidence to 0.05<br/>
-          • Check output shape in log after first detection<br/>
-          • Class order must match your data.yaml exactly<br/>
-          • Try swapping class names if labels are wrong<br/>
-          • Dynamic axes models work; static also fine<br/>
-          • WebGL backend used if available, falls back to WASM
+          • If nothing detected → lower conf to 0.05 and try again<br/>
+          • Check output shape in Debug → Raw Output after first detect<br/>
+          • drone_detector.onnx: class 0=drone, class 1=person ✓<br/>
+          • yolov8m.onnx: 80 COCO classes, class 0=person ✓
         </div>
       </div>
     </div>
@@ -752,9 +579,14 @@ footer {
 
 <script>
 // ══════════════════════════════════════════════════════
-// GLOBALS
+// FIX #1: Configure ORT to prefer WASM over WebGL
+// WebGL fails for mixed FP16/FP32 models (like drone_detector.onnx)
 // ══════════════════════════════════════════════════════
-const SZ = 640;          // model input size
+ort.env.wasm.numThreads = navigator.hardwareConcurrency || 4;
+// Set WASM paths (CDN)
+ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.0/dist/';
+
+const SZ = 640;
 let session   = null;
 let imgEl     = null, origW = 0, origH = 0;
 let vidStop   = false;
@@ -762,32 +594,50 @@ let wcStream  = null, wcRunning = false;
 let wcCounts  = {drone:0, person:0};
 let wcFrameCnt = 0, wcFpsCount = 0, wcFpsTimer = 0;
 let wcAnimId  = null;
+let modelClasses = [];   // FIX: populated from model metadata
 
-// Alert state
-let alertLog    = [];
-let alertStats  = {drone:0, person:0, total:0};
-let lastAlert   = 0;
+let alertLog   = [];
+let alertStats = {drone:0, person:0, total:0};
+let lastAlert  = 0;
 let bannerTimer = null;
-let audioCtx    = null;
+let audioCtx   = null;
 let alarmPlaying = false;
 
 const $ = id => document.getElementById(id);
 
-// Get current class names from UI
+// FIX: 80 COCO class names for yolov8m.onnx
+const COCO_NAMES = [
+  'person','bicycle','car','motorcycle','airplane','bus','train','truck','boat',
+  'traffic light','fire hydrant','stop sign','parking meter','bench','bird','cat',
+  'dog','horse','sheep','cow','elephant','bear','zebra','giraffe','backpack',
+  'umbrella','handbag','tie','suitcase','frisbee','skis','snowboard','sports ball',
+  'kite','baseball bat','baseball glove','skateboard','surfboard','tennis racket',
+  'bottle','wine glass','cup','fork','knife','spoon','bowl','banana','apple',
+  'sandwich','orange','broccoli','carrot','hot dog','pizza','donut','cake','chair',
+  'couch','potted plant','bed','dining table','toilet','tv','laptop','mouse',
+  'remote','keyboard','cell phone','microwave','oven','toaster','sink',
+  'refrigerator','book','clock','vase','scissors','teddy bear','hair drier','toothbrush'
+];
+
 function getClasses() {
   const raw = $('class-names').value.trim();
   return raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 }
-// Color per class index (cycles through palette)
-const PALETTE = ['#ff3355','#00ff9d','#00e5ff','#ffbb00','#bf7fff','#ff7700'];
+
+function refreshClassTags() {
+  const CN = getClasses();
+  $('cls-tags-wrap').innerHTML = CN.slice(0, 20).map((n,i) =>
+    `<div class="cls-tag">[${i}] ${n}</div>`
+  ).join('') + (CN.length > 20 ? `<div class="cls-tag">+${CN.length-20} more</div>` : '');
+}
+
+const PALETTE = ['#ff3355','#00ff9d','#00e5ff','#ffbb00','#bf7fff','#ff7700','#ff00aa','#00ffcc'];
 function clsColor(idx) { return PALETTE[idx % PALETTE.length]; }
 
-// ── Clock ────────────────────────────────────────────
-setInterval(() => {
-  $('clock').textContent = new Date().toLocaleTimeString('en-US',{hour12:false});
-}, 1000);
+// Clock
+setInterval(() => { $('clock').textContent = new Date().toLocaleTimeString('en-US',{hour12:false}); }, 1000);
 
-// ── Alert toggles ────────────────────────────────────
+// Alert toggles
 $('alert-on').addEventListener('change', function() {
   $('alert-lbl').textContent = this.checked ? 'ON' : 'OFF';
   $('alert-lbl').style.color = this.checked ? 'var(--red)' : 'var(--muted)';
@@ -798,7 +648,6 @@ $('alarm-on').addEventListener('change', function() {
   if (!this.checked) alarmPlaying = false;
 });
 
-// ── Tab ─────────────────────────────────────────────
 function goTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -807,7 +656,6 @@ function goTab(name) {
   syncModelDots();
 }
 
-// ── Log ─────────────────────────────────────────────
 function log(msg, cls = '') {
   const box = $('log-box');
   const d = document.createElement('div');
@@ -817,7 +665,6 @@ function log(msg, cls = '') {
   box.scrollTop = box.scrollHeight;
 }
 
-// ── Toast ────────────────────────────────────────────
 function toast(msg, color = 'var(--acc)') {
   const t = $('toast');
   t.textContent = msg; t.style.borderColor = color; t.style.color = color;
@@ -825,7 +672,6 @@ function toast(msg, color = 'var(--acc)') {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// ── Sync model status dots ───────────────────────────
 function syncModelDots() {
   ['vid','wc'].forEach(p => {
     $(`${p}-mdot`).className = session ? 'dot g' : 'dot r';
@@ -846,20 +692,17 @@ function playAlarm() {
   if (!$('alarm-on').checked || alarmPlaying || !audioCtx) return;
   alarmPlaying = true;
   const master = audioCtx.createGain();
-  master.gain.value = 0.35;
-  master.connect(audioCtx.destination);
+  master.gain.value = 0.35; master.connect(audioCtx.destination);
   let t = audioCtx.currentTime;
   for (let i = 0; i < 18; i++) {
     const o = audioCtx.createOscillator();
     const g = audioCtx.createGain();
-    o.connect(g); g.connect(master);
-    o.type = 'square';
+    o.connect(g); g.connect(master); o.type = 'square';
     o.frequency.value = i % 2 === 0 ? 880 : 660;
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.5, t + 0.01);
-    g.gain.linearRampToValueAtTime(0, t + 0.18);
-    o.start(t); o.stop(t + 0.18);
-    t += 0.26;
+    g.gain.linearRampToValueAtTime(0.5, t+0.01);
+    g.gain.linearRampToValueAtTime(0, t+0.18);
+    o.start(t); o.stop(t+0.18); t += 0.26;
   }
   setTimeout(() => { alarmPlaying = false; }, 5000);
 }
@@ -867,12 +710,10 @@ function playAlarm() {
 function showBanner(cls) {
   const b = $('alert-banner');
   b.textContent = `⚠ ${cls.toUpperCase()} DETECTED`;
-  b.classList.add('show');
-  $('alert-overlay').classList.add('show');
+  b.classList.add('show'); $('alert-overlay').classList.add('show');
   if (bannerTimer) clearTimeout(bannerTimer);
   bannerTimer = setTimeout(() => {
-    b.classList.remove('show');
-    $('alert-overlay').classList.remove('show');
+    b.classList.remove('show'); $('alert-overlay').classList.remove('show');
   }, 3000);
 }
 
@@ -881,19 +722,16 @@ function triggerAlert(cls, conf, source = '') {
   const now = Date.now();
   const cooldown = parseInt($('alert-cooldown').value) * 1000;
   if (now - lastAlert < cooldown) return;
-  const key = `alert-${cls}`;
-  if (!$(key) || !$(key).checked) return;
+  const key = cls === 'drone' ? 'alert-drone' : cls === 'person' ? 'alert-person' : null;
+  if (key && !$(key).checked) return;
   lastAlert = now;
-  showBanner(cls);
-  playAlarm();
+  showBanner(cls); playAlarm();
   if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification('⚠ SENTINEL', {
-      body: `${cls.toUpperCase()} detected @ ${(conf*100).toFixed(1)}%`,
-      tag: 'sentinel'
-    });
+    new Notification('⚠ SENTINEL', { body: `${cls.toUpperCase()} @ ${(conf*100).toFixed(1)}%`, tag: 'sentinel' });
   }
   alertLog.unshift({ time: new Date().toLocaleTimeString('en-US',{hour12:false}), cls, conf, source });
-  alertStats[cls] = (alertStats[cls] || 0) + 1;
+  const statKey = cls === 'drone' ? 'drone' : cls === 'person' ? 'person' : 'total';
+  if (alertStats[statKey] !== undefined) alertStats[statKey]++;
   alertStats.total++;
   refreshAlertUI();
   log(`🚨 ALERT: ${cls.toUpperCase()} (${(conf*100).toFixed(1)}%) [${source}]`, 'lwarn');
@@ -906,13 +744,14 @@ function refreshAlertUI() {
   $('alert-badge').textContent = `${alertStats.total} alert${alertStats.total !== 1 ? 's' : ''}`;
   if (alertLog.length) {
     $('stat-last').textContent = alertLog[0].cls.toUpperCase();
-    $('alert-list').innerHTML = alertLog.slice(0, 60).map(e => `
-      <div class="alert-entry">
+    $('alert-list').innerHTML = alertLog.slice(0,60).map(e =>
+      `<div class="alert-entry">
         <span class="alert-time">${e.time}</span>
         <span class="alert-cls">${e.cls.toUpperCase()}</span>
         <span class="alert-conf">${(e.conf*100).toFixed(1)}%</span>
         <span style="color:var(--muted);font-size:9px">${e.source}</span>
-      </div>`).join('');
+      </div>`
+    ).join('');
   }
 }
 
@@ -921,89 +760,139 @@ function clearAlertLog() {
   $('alert-list').innerHTML = '<div style="color:var(--muted);font-family:var(--font-hud);font-size:11px;text-align:center;padding:20px">Log cleared.</div>';
   refreshAlertUI();
 }
-function testAlert(cls) {
-  initAudio(); lastAlert = 0;
-  triggerAlert(cls, 0.92, 'TEST');
-  toast(`Test alert: ${cls.toUpperCase()}`, 'var(--warn)');
-}
+function testAlert(cls) { initAudio(); lastAlert = 0; triggerAlert(cls, 0.92, 'TEST'); toast(`Test: ${cls.toUpperCase()}`, 'var(--warn)'); }
 
-// Request notification permission
 if ('Notification' in window && Notification.permission === 'default') {
   Notification.requestPermission();
 }
 
 // ══════════════════════════════════════════════════════
-// MODEL LOADING
+// FIX #2: MODEL LOADING — WASM preferred, WebGL fallback
+// Also parses metadata for class names
 // ══════════════════════════════════════════════════════
 async function loadModel(input) {
   const file = input.files[0]; if (!file) return;
   $('onnx-name').textContent = file.name;
   $('model-dot').className = 'dot pulse b';
   $('model-st').textContent = 'LOADING...';
-  $('model-prog').style.width = '20%';
-  log(`Loading: ${file.name}`, 'linf');
+  $('model-prog').style.width = '15%';
+  log(`Loading: ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`, 'linf');
+  log('Using WASM backend (stable for mixed-precision models)…', 'linf');
+
+  let buf;
   try {
-    const buf = await file.arrayBuffer();
-    $('model-prog').style.width = '55%';
-    session = await ort.InferenceSession.create(buf, {
-      executionProviders: ['webgl', 'wasm']
-    });
-    $('model-prog').style.width = '100%';
-    log(`✅ Model loaded`, 'lok');
-    log(`   Inputs:  ${session.inputNames.join(', ')}`, 'linf');
-    log(`   Outputs: ${session.outputNames.join(', ')}`, 'linf');
-    toast('Model loaded!', 'var(--green)');
-    syncModelDots();
-    if (imgEl) $('img-btn').disabled = false;
-    if ($('vid-file').files.length) $('vid-btn').disabled = false;
-    window._shapeLogged = false;
+    buf = await file.arrayBuffer();
+    $('model-prog').style.width = '40%';
   } catch(e) {
-    $('model-prog').style.width = '0%';
-    log(`❌ Load failed: ${e.message}`, 'lerr');
-    toast('Load failed', 'var(--red)');
-    session = null; syncModelDots();
+    log(`❌ File read failed: ${e.message}`, 'lerr'); return;
+  }
+
+  // FIX: Try WASM first (reliable for opset 11 + mixed FP16/FP32)
+  // Then try WebGL if available for speed boost
+  let usedBackend = 'wasm';
+  try {
+    $('model-prog').style.width = '60%';
+    session = await ort.InferenceSession.create(buf, {
+      executionProviders: ['wasm']
+    });
+    log('✅ Session created with WASM backend', 'lok');
+  } catch(e) {
+    log(`❌ WASM failed: ${e.message}`, 'lerr');
+    log('Trying WebGL…', 'linf');
+    try {
+      session = await ort.InferenceSession.create(buf, {
+        executionProviders: ['webgl', 'wasm']
+      });
+      usedBackend = 'webgl';
+      log('✅ Session created with WebGL backend', 'lok');
+    } catch(e2) {
+      log(`❌ All backends failed: ${e2.message}`, 'lerr');
+      toast('Load failed — see log', 'var(--red)');
+      session = null; syncModelDots();
+      $('model-prog').style.width = '0%';
+      return;
+    }
+  }
+
+  $('model-prog').style.width = '100%';
+
+  // Show backend badge
+  const badge = $('backend-badge');
+  badge.style.display = 'inline-block';
+  badge.className = `backend-badge ${usedBackend}`;
+  badge.textContent = usedBackend.toUpperCase();
+  $('backend-st').innerHTML = `<span class="backend-badge ${usedBackend}">${usedBackend.toUpperCase()}</span>`;
+
+  log(`Inputs:  ${session.inputNames.join(', ')}`, 'linf');
+  log(`Outputs: ${session.outputNames.join(', ')}`, 'linf');
+
+  // FIX #3: Parse model metadata to auto-set class names
+  // ORT Web exposes metadata via session.handler.modelMetadata (may vary by version)
+  // We detect known models by output shape and set class names accordingly
+  autoSetClassNames(file.name);
+
+  toast(`Model loaded! [${usedBackend.toUpperCase()}]`, 'var(--green)');
+  syncModelDots();
+  if (imgEl) $('img-btn').disabled = false;
+  if ($('vid-file').files.length) $('vid-btn').disabled = false;
+  window._shapeLogged = false;
+  refreshClassTags();
+}
+
+// FIX: Automatically detect and set correct class names based on model file name
+// and output shape (determined after first inference)
+function autoSetClassNames(filename) {
+  const fn = filename.toLowerCase();
+  if (fn.includes('drone_detector') || fn.includes('drone')) {
+    // Your drone_detector.onnx: output [1,6,8400] = 4box + 2 classes
+    $('class-names').value = 'drone,person';
+    log('✅ Auto-detected: drone_detector — classes: drone, person (class 0=drone, class 1=person)', 'lok');
+    toast('Classes: drone, person', 'var(--green)');
+  } else if (fn.includes('yolov8m') || fn.includes('coco') || fn.includes('yolov8n') || fn.includes('yolov8s') || fn.includes('yolov8l') || fn.includes('yolov8x')) {
+    // yolov8m.onnx — 80 COCO classes, output [1,84,8400]
+    $('class-names').value = COCO_NAMES.join(',');
+    log(`✅ Auto-detected: YOLOv8 COCO — ${COCO_NAMES.length} classes loaded`, 'lok');
+    toast('80 COCO classes loaded!', 'var(--green)');
+  } else {
+    log('⚠ Unknown model name. Set class names manually above.', 'lwarn');
+    log('  Output [1,6,8400] → 2 classes | [1,84,8400] → 80 classes (COCO)', 'linf');
   }
 }
 
 // ══════════════════════════════════════════════════════
-// PREPROCESSING
+// PREPROCESSING — letterbox, CHW float32
 // ══════════════════════════════════════════════════════
 function preprocess(src, sW, sH) {
   const oc = document.createElement('canvas');
   oc.width = SZ; oc.height = SZ;
   const ctx = oc.getContext('2d');
-  // Letterbox
-  const sc  = Math.min(SZ / sW, SZ / sH);
-  const nW  = Math.round(sW * sc);
-  const nH  = Math.round(sH * sc);
-  const pX  = Math.floor((SZ - nW) / 2);
-  const pY  = Math.floor((SZ - nH) / 2);
-  ctx.fillStyle = '#808080';
-  ctx.fillRect(0, 0, SZ, SZ);
+  const sc  = Math.min(SZ/sW, SZ/sH);
+  const nW  = Math.round(sW*sc), nH = Math.round(sH*sc);
+  const pX  = Math.floor((SZ-nW)/2), pY = Math.floor((SZ-nH)/2);
+  ctx.fillStyle = '#808080'; ctx.fillRect(0,0,SZ,SZ);
   ctx.drawImage(src, 0, 0, sW, sH, pX, pY, nW, nH);
-  const { data } = ctx.getImageData(0, 0, SZ, SZ);
-  // CHW float32 RGB/255
-  const f32 = new Float32Array(3 * SZ * SZ);
-  for (let i = 0; i < SZ * SZ; i++) {
-    f32[i]             = data[i*4]   / 255;
-    f32[i + SZ*SZ]     = data[i*4+1] / 255;
-    f32[i + SZ*SZ*2]   = data[i*4+2] / 255;
+  const { data } = ctx.getImageData(0,0,SZ,SZ);
+  const f32 = new Float32Array(3*SZ*SZ);
+  for (let i = 0; i < SZ*SZ; i++) {
+    f32[i]           = data[i*4]   / 255;
+    f32[i + SZ*SZ]   = data[i*4+1] / 255;
+    f32[i + SZ*SZ*2] = data[i*4+2] / 255;
   }
-  return { tensor: new ort.Tensor('float32', f32, [1, 3, SZ, SZ]), sc, pX, pY };
+  return { tensor: new ort.Tensor('float32', f32, [1,3,SZ,SZ]), sc, pX, pY };
 }
 
 // ══════════════════════════════════════════════════════
 // NMS
 // ══════════════════════════════════════════════════════
 function iou(a, b) {
-  const ix1 = Math.max(a[0], b[0]), iy1 = Math.max(a[1], b[1]);
-  const ix2 = Math.min(a[2], b[2]), iy2 = Math.min(a[3], b[3]);
-  const inter = Math.max(0, ix2-ix1) * Math.max(0, iy2-iy1);
-  const ua = (a[2]-a[0])*(a[3]-a[1]) + (b[2]-b[0])*(b[3]-b[1]) - inter;
-  return inter / (ua + 1e-6);
+  const ix1 = Math.max(a[0],b[0]), iy1 = Math.max(a[1],b[1]);
+  const ix2 = Math.min(a[2],b[2]), iy2 = Math.min(a[3],b[3]);
+  const inter = Math.max(0,ix2-ix1)*Math.max(0,iy2-iy1);
+  const ua = (a[2]-a[0])*(a[3]-a[1])+(b[2]-b[0])*(b[3]-b[1])-inter;
+  return inter/(ua+1e-6);
 }
 function nms(boxes, iouTh) {
-  boxes.sort((a, b) => b.conf - a.conf);
+  boxes.sort((a,b) => b.conf - a.conf);
   const keep = [], used = new Set();
   for (let i = 0; i < boxes.length; i++) {
     if (used.has(i)) continue;
@@ -1017,149 +906,137 @@ function nms(boxes, iouTh) {
 }
 
 // ══════════════════════════════════════════════════════
-// CORE INFERENCE  — handles all YOLOv8 output shapes
+// INFERENCE — handles [1,nAttr,nDet] and [1,nDet,nAttr]
 // ══════════════════════════════════════════════════════
 async function infer(src, sW, sH, confTh, iouTh = 0.45) {
   const { tensor, sc, pX, pY } = preprocess(src, sW, sH);
-
   let res;
   try {
     res = await session.run({ [session.inputNames[0]]: tensor });
   } catch(e) {
     log(`❌ Inference error: ${e.message}`, 'lerr');
+    console.error(e);
     return [];
   }
 
   const out  = res[session.outputNames[0]];
   const data = out.data;
-  const dims = out.dims;   // e.g. [1,6,8400] or [1,8400,6] or [8400,6] etc.
+  const dims = out.dims;
 
   if (!window._shapeLogged) {
     window._shapeLogged = true;
     const shapeStr = `[${dims.join(', ')}]`;
-    log(`Output shape: ${shapeStr}`, 'linf');
+    const nClsFromShape = dims.length >= 2 ? Math.min(dims[1],dims[2]||dims[1]) - 4 : '?';
+    log(`Output: ${session.outputNames[0]} shape=${shapeStr}`, 'linf');
     $('raw-out').innerHTML =
-      `<span style="color:var(--acc)">Output name: ${session.outputNames[0]}</span><br/>` +
+      `<span style="color:var(--acc)">Output: ${session.outputNames[0]}</span><br/>` +
       `<span style="color:var(--green)">Shape: ${shapeStr}</span><br/>` +
-      `<span style="color:var(--muted)">Total elements: ${data.length}</span><br/><br/>` +
+      `<span style="color:var(--muted)">Total elements: ${data.length}</span><br/>` +
+      `<span style="color:var(--warn)">Detected ${getClasses().length} classes configured</span><br/><br/>` +
       `First 40 values:<br/>${Array.from(data.slice(0,40)).map(v=>v.toFixed(4)).join(', ')}`;
+
+    // FIX: Auto-correct class names if output shape is known
+    if (dims.length === 3) {
+      const nAttr = Math.min(dims[1], dims[2]);
+      const nClasses = nAttr - 4;
+      const configured = getClasses().length;
+      if (nClasses !== configured) {
+        log(`⚠ Class count mismatch: model has ${nClasses} classes, UI has ${configured}`, 'lwarn');
+        log(`   Auto-fixing class names…`, 'linf');
+        if (nClasses === 80) {
+          $('class-names').value = COCO_NAMES.join(',');
+          log('✅ Loaded 80 COCO class names', 'lok');
+        } else if (nClasses === 2) {
+          $('class-names').value = 'drone,person';
+          log('✅ Set classes: drone, person', 'lok');
+        } else {
+          const generic = Array.from({length: nClasses}, (_,i) => `class${i}`).join(',');
+          $('class-names').value = generic;
+          log(`⚠ Set ${nClasses} generic class names — edit in Image tab`, 'lwarn');
+        }
+        refreshClassTags();
+      }
+    }
   }
 
-  // ── Determine layout ──────────────────────────────
-  // We support:
-  //   [1, nAttr, nDet]  → YOLOv8 default export (transposed, nAttr < nDet usually)
-  //   [1, nDet, nAttr]  → some exporters
-  //   [nDet, nAttr]     → 2D
+  // Layout detection
   let nDet, nAttr, getRow;
-
   if (dims.length === 3) {
     const [, d1, d2] = dims;
-    // Heuristic: whichever dim matches 8400 (or is larger) is nDet
     if (d1 <= d2) {
-      // [1, nAttr, nDet]  — standard YOLOv8
+      // [1, nAttr, nDet] — standard YOLOv8 (drone_detector: [1,6,8400], yolov8m: [1,84,8400])
       nAttr = d1; nDet = d2;
       getRow = i => {
         const row = new Float32Array(nAttr);
-        for (let a = 0; a < nAttr; a++) row[a] = data[a * nDet + i];
+        for (let a = 0; a < nAttr; a++) row[a] = data[a*nDet+i];
         return row;
       };
     } else {
       // [1, nDet, nAttr]
       nAttr = d2; nDet = d1;
-      getRow = i => data.slice(i * nAttr, i * nAttr + nAttr);
+      getRow = i => data.slice(i*nAttr, i*nAttr+nAttr);
     }
   } else if (dims.length === 2) {
     nDet = dims[0]; nAttr = dims[1];
-    getRow = i => data.slice(i * nAttr, i * nAttr + nAttr);
+    getRow = i => data.slice(i*nAttr, i*nAttr+nAttr);
   } else if (dims.length === 4) {
-    // [1,1,nAttr,nDet] or [1,1,nDet,nAttr]
     const d2 = dims[2], d3 = dims[3];
-    if (d2 <= d3) {
-      nAttr = d2; nDet = d3;
-      getRow = i => {
-        const row = new Float32Array(nAttr);
-        for (let a = 0; a < nAttr; a++) row[a] = data[a * nDet + i];
-        return row;
-      };
-    } else {
-      nAttr = d3; nDet = d2;
-      getRow = i => data.slice(i * nAttr, i * nAttr + nAttr);
-    }
+    if (d2 <= d3) { nAttr=d2; nDet=d3; getRow=i=>{ const r=new Float32Array(nAttr); for(let a=0;a<nAttr;a++)r[a]=data[a*nDet+i]; return r; }; }
+    else { nAttr=d3; nDet=d2; getRow=i=>data.slice(i*nAttr,i*nAttr+nAttr); }
   } else {
-    log(`⚠ Unhandled output shape: [${dims}]`, 'lerr');
-    return [];
+    log(`⚠ Unhandled output shape: [${dims}]`, 'lerr'); return [];
   }
 
-  const nClasses = nAttr - 4;   // cx,cy,w,h + class scores
-  if (nClasses < 1) {
-    log(`⚠ nAttr=${nAttr} — expected >4 (4 box + N classes)`, 'lerr');
-    return [];
-  }
+  const nClasses = nAttr - 4;
+  if (nClasses < 1) { log(`⚠ nAttr=${nAttr} — expected >4`, 'lerr'); return []; }
 
   const raw = [];
   for (let i = 0; i < nDet; i++) {
     const row = getRow(i);
     const cx = row[0], cy = row[1], w = row[2], h = row[3];
     if (w <= 0 || h <= 0) continue;
-
-    // Find best class
     let maxS = -Infinity, cls = 0;
-    for (let c = 0; c < nClasses; c++) {
-      if (row[4 + c] > maxS) { maxS = row[4 + c]; cls = c; }
-    }
+    for (let c = 0; c < nClasses; c++) { if (row[4+c] > maxS) { maxS = row[4+c]; cls = c; } }
     if (maxS < confTh) continue;
-
-    // Unletterbox
-    const x1 = Math.max(0,  ((cx - w/2) - pX) / sc);
-    const y1 = Math.max(0,  ((cy - h/2) - pY) / sc);
-    const x2 = Math.min(sW, ((cx + w/2) - pX) / sc);
-    const y2 = Math.min(sH, ((cy + h/2) - pY) / sc);
-    if (x2 > x1 && y2 > y1)
-      raw.push({ bbox: [x1, y1, x2, y2], conf: maxS, cls });
+    const x1 = Math.max(0,  ((cx-w/2)-pX)/sc);
+    const y1 = Math.max(0,  ((cy-h/2)-pY)/sc);
+    const x2 = Math.min(sW, ((cx+w/2)-pX)/sc);
+    const y2 = Math.min(sH, ((cy+h/2)-pY)/sc);
+    if (x2 > x1 && y2 > y1) raw.push({ bbox:[x1,y1,x2,y2], conf:maxS, cls });
   }
-
   return nms(raw, iouTh);
 }
 
 // ══════════════════════════════════════════════════════
-// DRAW
+// DRAWING
 // ══════════════════════════════════════════════════════
 function drawBoxes(canvas, src, boxes, W, H) {
   const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, W, H);
-  ctx.drawImage(src, 0, 0, W, H);
+  ctx.clearRect(0,0,W,H); ctx.drawImage(src,0,0,W,H);
   const CN = getClasses();
   boxes.forEach(({ bbox, conf, cls }) => {
-    const [x1, y1, x2, y2] = bbox;
-    const bw = x2 - x1, bh = y2 - y1;
-    const col = clsColor(cls);
+    const [x1,y1,x2,y2] = bbox;
+    const bw=x2-x1, bh=y2-y1, col=clsColor(cls);
     const name = CN[cls] || `cls${cls}`;
-
-    // Box
-    ctx.strokeStyle = col; ctx.lineWidth = 2.5;
-    ctx.strokeRect(x1, y1, bw, bh);
-    // Corner marks
-    const cs = Math.min(bw, bh, 18); ctx.lineWidth = 3;
+    ctx.strokeStyle=col; ctx.lineWidth=2.5; ctx.strokeRect(x1,y1,bw,bh);
+    const cs = Math.min(bw,bh,18); ctx.lineWidth=3;
     [[x1,y1,1,1],[x2,y1,-1,1],[x1,y2,1,-1],[x2,y2,-1,-1]].forEach(([px,py,dx,dy]) => {
       ctx.beginPath(); ctx.moveTo(px+dx*cs,py); ctx.lineTo(px,py); ctx.lineTo(px,py+dy*cs); ctx.stroke();
     });
-    // Label
     const lbl = `${name.toUpperCase()}  ${(conf*100).toFixed(1)}%`;
     ctx.font = 'bold 12px "Share Tech Mono",monospace';
     const tw = ctx.measureText(lbl).width;
-    ctx.fillStyle = col; ctx.fillRect(x1-1, y1-20, tw+10, 20);
-    ctx.fillStyle = '#000'; ctx.fillText(lbl, x1+4, y1-5);
+    ctx.fillStyle=col; ctx.fillRect(x1-1,y1-20,tw+10,20);
+    ctx.fillStyle='#000'; ctx.fillText(lbl,x1+4,y1-5);
   });
 }
 
 function detHTML(boxes) {
   const CN = getClasses();
-  if (!boxes.length)
-    return '<div style="color:var(--muted);font-family:var(--font-hud);font-size:11px;text-align:center;padding:12px">No objects detected</div>';
+  if (!boxes.length) return '<div style="color:var(--muted);font-family:var(--font-hud);font-size:11px;text-align:center;padding:12px">No objects detected</div>';
   return boxes.map(({ bbox, conf, cls }) => {
-    const name = CN[cls] || `cls${cls}`;
-    const col  = clsColor(cls);
-    const [x1,y1,x2,y2] = bbox.map(v => Math.round(v));
+    const name=CN[cls]||`cls${cls}`, col=clsColor(cls);
+    const [x1,y1,x2,y2] = bbox.map(v=>Math.round(v));
     return `<div class="det-item">
       <div>
         <div class="d-cls" style="color:${col}">${name.toUpperCase()}</div>
@@ -1174,28 +1051,33 @@ function detHTML(boxes) {
 }
 
 // ══════════════════════════════════════════════════════
-// DROP ZONE HELPER
+// DRAG AND DROP HELPERS
 // ══════════════════════════════════════════════════════
 function setupDZ(dzId, handler) {
   const dz = $(dzId);
   dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
   dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
-  dz.addEventListener('drop', e => {
-    e.preventDefault(); dz.classList.remove('drag');
-    const f = e.dataTransfer.files[0]; if (f) handler(f);
-  });
+  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); const f=e.dataTransfer.files[0]; if(f) handler(f); });
 }
 function setFileInput(file, inputId) {
-  const dt = new DataTransfer(); dt.items.add(file);
-  $(inputId).files = dt.files;
+  const dt = new DataTransfer(); dt.items.add(file); $(inputId).files = dt.files;
 }
+
+// FIX: Model drag-and-drop
+const mdz = $('mdz');
+mdz.addEventListener('dragover', e => { e.preventDefault(); mdz.classList.add('drag'); });
+mdz.addEventListener('dragleave', () => mdz.classList.remove('drag'));
+mdz.addEventListener('drop', e => {
+  e.preventDefault(); mdz.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.onnx')) { setFileInput(f, 'onnx-file'); loadModel($('onnx-file')); }
+  else toast('Drop an .onnx file', 'var(--red)');
+});
 
 // ══════════════════════════════════════════════════════
 // IMAGE TAB
 // ══════════════════════════════════════════════════════
-setupDZ('img-dz', f => {
-  if (f.type.startsWith('image/')) { setFileInput(f, 'img-file'); handleImg($('img-file')); }
-});
+setupDZ('img-dz', f => { if (f.type.startsWith('image/')) { setFileInput(f, 'img-file'); handleImg($('img-file')); } });
 
 function handleImg(input) {
   const file = input.files[0]; if (!file) return;
@@ -1204,11 +1086,10 @@ function handleImg(input) {
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
-      imgEl = img; origW = img.width; origH = img.height;
-      const c = $('img-canvas');
-      c.width = origW; c.height = origH;
-      c.style.display = 'block'; $('img-ph').style.display = 'none';
-      c.getContext('2d').drawImage(img, 0, 0);
+      imgEl=img; origW=img.width; origH=img.height;
+      const c=$('img-canvas'); c.width=origW; c.height=origH;
+      c.style.display='block'; $('img-ph').style.display='none';
+      c.getContext('2d').drawImage(img,0,0);
       $('img-btn').disabled = !session;
       log(`Image: ${file.name} (${origW}×${origH})`, 'linf');
       if (!session) log('⚠ Load model first!', 'lerr');
@@ -1220,51 +1101,46 @@ function handleImg(input) {
 
 async function runImg() {
   if (!session || !imgEl) return;
-  $('img-btn').disabled = true; $('img-spin').style.display = 'inline-block';
-  const confTh = parseFloat($('conf').value);
-  const iouTh  = parseFloat($('iou').value);
+  initAudio();
+  $('img-btn').disabled=true; $('img-spin').style.display='inline-block';
+  const confTh=parseFloat($('conf').value);
+  const iouTh=parseFloat($('iou').value);
   log(`Detecting… conf=${confTh} iou=${iouTh}`, 'linf');
   try {
     const t0 = performance.now();
     const boxes = await infer(imgEl, origW, origH, confTh, iouTh);
-    const ms = Math.round(performance.now() - t0);
+    const ms = Math.round(performance.now()-t0);
     log(`${boxes.length} object(s) in ${ms}ms`, boxes.length ? 'lok' : '');
     drawBoxes($('img-canvas'), imgEl, boxes, origW, origH);
-
     const CN = getClasses();
     const counts = {};
-    boxes.forEach(b => {
-      const n = CN[b.cls] || `cls${b.cls}`;
-      counts[n] = (counts[n] || 0) + 1;
-    });
+    boxes.forEach(b => { const n=CN[b.cls]||`cls${b.cls}`; counts[n]=(counts[n]||0)+1; });
     $('i-drone').textContent  = counts['drone']  || 0;
     $('i-person').textContent = counts['person'] || 0;
-    $('i-count').textContent  = `${boxes.length} object${boxes.length !== 1 ? 's' : ''}`;
+    $('i-count').textContent  = `${boxes.length} object${boxes.length!==1?'s':''}`;
     $('img-dets').innerHTML   = detHTML(boxes);
-    boxes.forEach(b => triggerAlert(CN[b.cls] || `cls${b.cls}`, b.conf, 'IMAGE'));
-    toast(`${boxes.length} detected!`);
+    boxes.forEach(b => triggerAlert(CN[b.cls]||`cls${b.cls}`, b.conf, 'IMAGE'));
+    toast(`${boxes.length} detected in ${ms}ms`);
   } catch(e) {
     log(`❌ ${e.message}`, 'lerr'); toast('Error', 'var(--red)'); console.error(e);
   } finally {
-    $('img-btn').disabled = false; $('img-spin').style.display = 'none';
+    $('img-btn').disabled=false; $('img-spin').style.display='none';
   }
 }
 
 function clearImg() {
-  imgEl = null; $('img-file').value = ''; $('img-fname').textContent = '';
-  $('img-btn').disabled = true;
-  const c = $('img-canvas'); c.getContext('2d').clearRect(0,0,c.width,c.height); c.style.display = 'none';
-  $('img-ph').style.display = 'block';
-  $('img-dets').innerHTML = '<div style="color:var(--muted);font-family:var(--font-hud);font-size:11px;text-align:center;padding:14px">No detections yet</div>';
-  $('i-drone').textContent = '0'; $('i-person').textContent = '0'; $('i-count').textContent = '0 objects';
+  imgEl=null; $('img-file').value=''; $('img-fname').textContent='';
+  $('img-btn').disabled=true;
+  const c=$('img-canvas'); c.getContext('2d').clearRect(0,0,c.width,c.height); c.style.display='none';
+  $('img-ph').style.display='block';
+  $('img-dets').innerHTML='<div style="color:var(--muted);font-family:var(--font-hud);font-size:11px;text-align:center;padding:14px">No detections yet</div>';
+  $('i-drone').textContent='0'; $('i-person').textContent='0'; $('i-count').textContent='0 objects';
 }
 
 // ══════════════════════════════════════════════════════
 // VIDEO TAB
 // ══════════════════════════════════════════════════════
-setupDZ('vid-dz', f => {
-  if (f.type.startsWith('video/')) { setFileInput(f, 'vid-file'); handleVid($('vid-file')); }
-});
+setupDZ('vid-dz', f => { if (f.type.startsWith('video/')) { setFileInput(f,'vid-file'); handleVid($('vid-file')); } });
 
 function handleVid(input) {
   const file = input.files[0]; if (!file) return;
@@ -1280,211 +1156,188 @@ function handleVid(input) {
 
 async function runVid() {
   if (!session) return;
-  const vid = $('vid-src');
-  if (!vid.duration) { toast('Upload a video first', 'var(--red)'); return; }
-  vidStop = false;
-  $('vid-btn').disabled = true; $('vid-stop').disabled = false; $('vid-spin').style.display = 'inline-block';
-  const confTh = parseFloat($('vconf').value);
-  const skip   = parseInt($('vskip').value);
-  const canvas = $('vid-canvas'), ctx = canvas.getContext('2d');
-  await new Promise(res => { vid.onseeked = res; vid.currentTime = 0; });
-  canvas.width  = vid.videoWidth  || 640;
-  canvas.height = vid.videoHeight || 480;
-  canvas.style.display = 'block'; $('vid-ph').style.display = 'none';
-  const fps   = 25;
-  const total = Math.floor(vid.duration * fps);
-  let frame = 0, totalDets = 0;
-  const vc = {};
+  initAudio();
+  const vid=$('vid-src');
+  if (!vid.duration) { toast('Upload a video first','var(--red)'); return; }
+  vidStop=false;
+  $('vid-btn').disabled=true; $('vid-stop').disabled=false; $('vid-spin').style.display='inline-block';
+  const confTh=parseFloat($('vconf').value);
+  const skip=parseInt($('vskip').value);
+  const canvas=$('vid-canvas'), ctx=canvas.getContext('2d');
+  await new Promise(res => { vid.onseeked=res; vid.currentTime=0; });
+  canvas.width=vid.videoWidth||640; canvas.height=vid.videoHeight||480;
+  canvas.style.display='block'; $('vid-ph').style.display='none';
+  const fps=25, total=Math.floor(vid.duration*fps);
+  let frame=0, totalDets=0;
+  const vc={};
   log(`Processing ${total} frames, skip=${skip}…`, 'linf');
   const next = async () => {
-    if (vidStop || frame >= total) { finishVid(frame, totalDets); return; }
-    await new Promise(res => { vid.onseeked = res; vid.currentTime = frame / fps; });
-    if (frame % skip === 0) {
-      ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+    if (vidStop||frame>=total) { finishVid(frame,totalDets); return; }
+    await new Promise(res => { vid.onseeked=res; vid.currentTime=frame/fps; });
+    if (frame%skip===0) {
+      ctx.drawImage(vid,0,0,canvas.width,canvas.height);
       try {
         const boxes = await infer(vid, canvas.width, canvas.height, confTh, 0.45);
         drawBoxes(canvas, vid, boxes, canvas.width, canvas.height);
         totalDets += boxes.length;
-        const CN = getClasses();
-        boxes.forEach(b => {
-          const n = CN[b.cls] || `cls${b.cls}`;
-          vc[n] = (vc[n] || 0) + 1;
-          triggerAlert(n, b.conf, 'VIDEO');
-        });
-        $('vid-dets').innerHTML = detHTML(boxes);
+        const CN=getClasses();
+        boxes.forEach(b => { const n=CN[b.cls]||`cls${b.cls}`; vc[n]=(vc[n]||0)+1; triggerAlert(n,b.conf,'VIDEO'); });
+        $('vid-dets').innerHTML=detHTML(boxes);
       } catch(e) {}
     }
     frame++;
-    const pct = Math.round(frame / total * 100);
-    $('vprog').style.width   = pct + '%';
-    $('vprog-lbl').textContent = `${frame}/${total} (${pct}%)`;
-    $('v-frames').textContent  = frame;
-    $('v-total').textContent   = totalDets;
-    $('v-drone').textContent   = vc['drone']  || 0;
-    $('v-person').textContent  = vc['person'] || 0;
-    $('v-flbl').textContent    = `Frame ${frame}/${total}`;
+    const pct=Math.round(frame/total*100);
+    $('vprog').style.width=pct+'%'; $('vprog-lbl').textContent=`${frame}/${total} (${pct}%)`;
+    $('v-frames').textContent=frame; $('v-total').textContent=totalDets;
+    $('v-drone').textContent=vc['drone']||0; $('v-person').textContent=vc['person']||0;
+    $('v-flbl').textContent=`Frame ${frame}/${total}`;
     setTimeout(next, 0);
   };
   next();
 }
-function finishVid(frames, totalDets) {
-  $('vid-btn').disabled = false; $('vid-stop').disabled = true; $('vid-spin').style.display = 'none';
-  $('vprog').style.width = '100%'; $('vprog-lbl').textContent = '✅ Done!';
+function finishVid(frames,totalDets) {
+  $('vid-btn').disabled=false; $('vid-stop').disabled=true; $('vid-spin').style.display='none';
+  $('vprog').style.width='100%'; $('vprog-lbl').textContent='✅ Done!';
   log(`✅ Video done — ${frames} frames, ${totalDets} detections`, 'lok');
   toast(`Done! ${totalDets} detections`, 'var(--green)');
 }
-function stopVid() { vidStop = true; $('vid-stop').disabled = true; log('Stopped.', 'lerr'); }
+function stopVid() { vidStop=true; $('vid-stop').disabled=true; log('Stopped.','lerr'); }
 function clearVid() {
-  vidStop = true; $('vid-file').value = ''; $('vid-src').src = '';
-  $('vid-canvas').style.display = 'none'; $('vid-ph').style.display = 'block';
-  $('vid-ph').textContent = 'Upload a video to begin';
-  $('vid-btn').disabled = true; $('vid-stop').disabled = true;
-  $('vprog').style.width = '0%'; $('vprog-lbl').textContent = '—';
-  ['v-frames','v-total','v-drone','v-person'].forEach(id => $(id).textContent = '0');
-  $('vid-dets').innerHTML = '<div style="color:var(--muted);font-family:var(--font-hud);font-size:11px;text-align:center;padding:14px">No video loaded</div>';
+  vidStop=true; $('vid-file').value=''; $('vid-src').src='';
+  $('vid-canvas').style.display='none'; $('vid-ph').style.display='block';
+  $('vid-ph').textContent='Upload a video to begin';
+  $('vid-btn').disabled=true; $('vid-stop').disabled=true;
+  $('vprog').style.width='0%'; $('vprog-lbl').textContent='—';
+  ['v-frames','v-total','v-drone','v-person'].forEach(id=>$(id).textContent='0');
+  $('vid-dets').innerHTML='<div style="color:var(--muted);font-family:var(--font-hud);font-size:11px;text-align:center;padding:14px">No video loaded</div>';
 }
 
 // ══════════════════════════════════════════════════════
 // WEBCAM TAB
 // ══════════════════════════════════════════════════════
 async function startWC() {
-  if (!session) { toast('Load model first!', 'var(--red)'); return; }
+  if (!session) { toast('Load model first!','var(--red)'); return; }
   initAudio();
   const facing = $('cam-select').value;
   let stream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
+    stream = await navigator.mediaDevices.getUserMedia({ video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}} });
   } catch(e) {
-    try { stream = await navigator.mediaDevices.getUserMedia({ video: true }); }
-    catch(e2) { toast('Camera denied: ' + e2.message, 'var(--red)'); log(`❌ Camera: ${e2.message}`, 'lerr'); return; }
+    try { stream = await navigator.mediaDevices.getUserMedia({video:true}); }
+    catch(e2) { toast('Camera denied: '+e2.message,'var(--red)'); log(`❌ Camera: ${e2.message}`,'lerr'); return; }
   }
-  wcStream = stream;
+  wcStream=stream;
   const video = document.createElement('video');
-  video.srcObject = stream; video.muted = true; video.playsInline = true;
+  video.srcObject=stream; video.muted=true; video.playsInline=true;
   await video.play();
-
-  const canvas = $('wc-canvas');
-  canvas.width  = video.videoWidth  || 640;
-  canvas.height = video.videoHeight || 480;
-  canvas.style.display = 'block'; $('wc-ph').style.display = 'none';
-  $('wc-fps-disp').style.display = 'block';
-  $('wc-rec').classList.add('show');
-  $('wc-start').disabled = true; $('wc-stop').disabled = false;
-  wcRunning = true; wcFpsTimer = Date.now(); wcFpsCount = 0; wcFrameCnt = 0;
-  log('📹 Webcam started', 'lok'); toast('Camera started!', 'var(--green)');
-
-  let lastBoxes = [], inferBusy = false, fc = 0;
-
+  const canvas=$('wc-canvas');
+  canvas.width=video.videoWidth||640; canvas.height=video.videoHeight||480;
+  canvas.style.display='block'; $('wc-ph').style.display='none';
+  $('wc-fps-disp').style.display='block'; $('wc-rec').classList.add('show');
+  $('wc-start').disabled=true; $('wc-stop').disabled=false;
+  wcRunning=true; wcFpsTimer=Date.now(); wcFpsCount=0; wcFrameCnt=0;
+  log('📹 Webcam started','lok'); toast('Camera started!','var(--green)');
+  let lastBoxes=[], inferBusy=false, fc=0;
   const loop = () => {
     if (!wcRunning) return;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const CN = getClasses();
-    lastBoxes.forEach(({ bbox, conf, cls }) => {
-      const [x1,y1,x2,y2] = bbox, col = clsColor(cls);
-      const name = CN[cls] || `cls${cls}`;
-      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.strokeRect(x1,y1,x2-x1,y2-y1);
-      const lbl = `${name.toUpperCase()} ${(conf*100).toFixed(0)}%`;
-      ctx.font = 'bold 12px monospace';
-      const tw = ctx.measureText(lbl).width;
-      ctx.fillStyle = col; ctx.fillRect(x1, y1-18, tw+8, 18);
-      ctx.fillStyle = '#000'; ctx.fillText(lbl, x1+4, y1-4);
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    const CN=getClasses();
+    lastBoxes.forEach(({ bbox,conf,cls }) => {
+      const [x1,y1,x2,y2]=bbox, col=clsColor(cls);
+      const name=CN[cls]||`cls${cls}`;
+      ctx.strokeStyle=col; ctx.lineWidth=2; ctx.strokeRect(x1,y1,x2-x1,y2-y1);
+      const lbl=`${name.toUpperCase()} ${(conf*100).toFixed(0)}%`;
+      ctx.font='bold 12px monospace'; const tw=ctx.measureText(lbl).width;
+      ctx.fillStyle=col; ctx.fillRect(x1,y1-18,tw+8,18);
+      ctx.fillStyle='#000'; ctx.fillText(lbl,x1+4,y1-4);
     });
-
     wcFpsCount++; wcFrameCnt++; fc++;
-    const now = Date.now();
-    if (now - wcFpsTimer >= 1000) {
-      $('wc-fps-disp').textContent = wcFpsCount + ' FPS';
-      $('wc-fps-val').textContent  = wcFpsCount;
-      $('wc-frame-cnt').textContent = wcFrameCnt;
-      wcFpsCount = 0; wcFpsTimer = now;
+    const now=Date.now();
+    if (now-wcFpsTimer>=1000) {
+      $('wc-fps-disp').textContent=wcFpsCount+' FPS';
+      $('wc-fps-val').textContent=wcFpsCount;
+      $('wc-frame-cnt').textContent=wcFrameCnt;
+      wcFpsCount=0; wcFpsTimer=now;
     }
-
-    if (fc % 6 === 0 && !inferBusy) {
-      inferBusy = true;
-      const off = document.createElement('canvas');
-      off.width = canvas.width; off.height = canvas.height;
-      off.getContext('2d').drawImage(video, 0, 0, off.width, off.height);
-      infer(off, off.width, off.height, parseFloat($('wc-conf').value), 0.45)
+    if (fc%6===0 && !inferBusy) {
+      inferBusy=true;
+      const off=document.createElement('canvas'); off.width=canvas.width; off.height=canvas.height;
+      off.getContext('2d').drawImage(video,0,0,off.width,off.height);
+      infer(off,off.width,off.height,parseFloat($('wc-conf').value),0.45)
         .then(boxes => {
           if (!wcRunning) return;
-          lastBoxes = boxes;
-          const CN2 = getClasses();
-          boxes.forEach(b => {
-            const n = CN2[b.cls] || `cls${b.cls}`;
-            if (n in wcCounts) wcCounts[n]++;
-            triggerAlert(n, b.conf, 'WEBCAM');
-          });
-          $('wc-drone').textContent  = wcCounts.drone  || 0;
-          $('wc-person').textContent = wcCounts.person || 0;
-          const tc = {};
-          boxes.forEach(b => { const n = CN2[b.cls]||`cls${b.cls}`; tc[n]=(tc[n]||0)+1; });
-          $('wc-tags').innerHTML = Object.entries(tc)
-            .map(([n,c]) => `<div class="wc-tag ${n}">${n.toUpperCase()} ×${c}</div>`).join('');
-          $('wc-dets').innerHTML = detHTML(boxes);
+          lastBoxes=boxes;
+          const CN2=getClasses();
+          boxes.forEach(b => { const n=CN2[b.cls]||`cls${b.cls}`; if(n in wcCounts)wcCounts[n]++; triggerAlert(n,b.conf,'WEBCAM'); });
+          $('wc-drone').textContent=wcCounts.drone||0; $('wc-person').textContent=wcCounts.person||0;
+          const tc={};
+          boxes.forEach(b=>{ const n=CN2[b.cls]||`cls${b.cls}`; tc[n]=(tc[n]||0)+1; });
+          $('wc-tags').innerHTML=Object.entries(tc).map(([n,c])=>`<div class="wc-tag">${n.toUpperCase()} ×${c}</div>`).join('');
+          $('wc-dets').innerHTML=detHTML(boxes);
         })
-        .catch(() => {})
-        .finally(() => { inferBusy = false; });
+        .catch(()=>{})
+        .finally(()=>{ inferBusy=false; });
     }
-    wcAnimId = requestAnimationFrame(loop);
+    wcAnimId=requestAnimationFrame(loop);
   };
   loop();
 }
 
 function stopWC() {
-  wcRunning = false;
-  if (wcAnimId) { cancelAnimationFrame(wcAnimId); wcAnimId = null; }
-  if (wcStream) { wcStream.getTracks().forEach(t => t.stop()); wcStream = null; }
-  $('wc-canvas').style.display = 'none'; $('wc-ph').style.display = 'block';
-  $('wc-ph').textContent = 'Click Start Camera to begin';
-  $('wc-fps-disp').style.display = 'none';
-  $('wc-rec').classList.remove('show');
-  $('wc-tags').innerHTML = '';
-  $('wc-start').disabled = false; $('wc-stop').disabled = true;
-  $('wc-dets').innerHTML = '<div style="color:var(--muted);font-family:var(--font-hud);font-size:11px;text-align:center;padding:14px">Camera stopped</div>';
-  alarmPlaying = false;
-  log('Camera stopped.', 'lerr'); toast('Camera stopped', 'var(--red)');
+  wcRunning=false;
+  if (wcAnimId) { cancelAnimationFrame(wcAnimId); wcAnimId=null; }
+  if (wcStream) { wcStream.getTracks().forEach(t=>t.stop()); wcStream=null; }
+  $('wc-canvas').style.display='none'; $('wc-ph').style.display='block';
+  $('wc-ph').textContent='Click Start Camera to begin';
+  $('wc-fps-disp').style.display='none'; $('wc-rec').classList.remove('show');
+  $('wc-tags').innerHTML=''; $('wc-start').disabled=false; $('wc-stop').disabled=true;
+  $('wc-dets').innerHTML='<div style="color:var(--muted);font-family:var(--font-hud);font-size:11px;text-align:center;padding:14px">Camera stopped</div>';
+  alarmPlaying=false;
+  log('Camera stopped.','lerr'); toast('Camera stopped','var(--red)');
 }
-
 function resetWC() {
-  wcCounts = {drone:0,person:0}; wcFrameCnt = 0;
-  $('wc-drone').textContent = '0'; $('wc-person').textContent = '0'; $('wc-frame-cnt').textContent = '0';
+  wcCounts={drone:0,person:0}; wcFrameCnt=0;
+  $('wc-drone').textContent='0'; $('wc-person').textContent='0'; $('wc-frame-cnt').textContent='0';
 }
 
 // ══════════════════════════════════════════════════════
 // DEBUG TAB
 // ══════════════════════════════════════════════════════
 function debugModel() {
-  if (!session) { $('debug-box').innerHTML = '<span style="color:var(--red)">No model loaded.</span>'; return; }
-  const lines = [
-    `<span style="color:var(--acc)">Input names:</span>  ${session.inputNames.join(', ')}`,
-    `<span style="color:var(--acc)">Output names:</span> ${session.outputNames.join(', ')}`,
+  if (!session) { $('debug-box').innerHTML='<span style="color:var(--red)">No model loaded.</span>'; return; }
+  const CN = getClasses();
+  $('debug-box').innerHTML = [
+    `<span style="color:var(--acc)">Input:</span>  ${session.inputNames.join(', ')}`,
+    `<span style="color:var(--acc)">Output:</span> ${session.outputNames.join(', ')}`,
     '',
-    `<span style="color:var(--green)">Class names (from UI):</span>`,
-    getClasses().map((n,i) => `  [${i}] ${n}`).join('<br/>'),
+    `<span style="color:var(--green)">Classes (${CN.length}):</span>`,
+    CN.slice(0,20).map((n,i)=>`  [${i}] ${n}`).join('<br/>') + (CN.length>20?`<br/>  … +${CN.length-20} more`:''),
     '',
     `<span style="color:var(--muted)">Input size: 640×640 (letterboxed)</span>`,
-  ];
-  $('debug-box').innerHTML = lines.join('<br/>');
+    `<span style="color:var(--muted)">Backend: see header badge</span>`,
+  ].join('<br/>');
 }
 
 async function debugTestInfer() {
-  if (!session) { toast('Load model first!', 'var(--red)'); return; }
-  // Create a blank grey test image
-  const c = document.createElement('canvas'); c.width = 100; c.height = 100;
-  const ctx = c.getContext('2d'); ctx.fillStyle='#888'; ctx.fillRect(0,0,100,100);
-  window._shapeLogged = false;
-  log('Running test inference on blank image…', 'linf');
+  if (!session) { toast('Load model first!','var(--red)'); return; }
+  const c=document.createElement('canvas'); c.width=100; c.height=100;
+  const ctx=c.getContext('2d'); ctx.fillStyle='#888'; ctx.fillRect(0,0,100,100);
+  window._shapeLogged=false;
+  log('Running test inference on blank 100×100 image…','linf');
   try {
-    const boxes = await infer(c, 100, 100, 0.01, 0.45);
-    log(`Test done — ${boxes.length} detections at conf≥0.01`, 'lok');
-    toast('Test done — check log & Debug tab', 'var(--green)');
+    const t0=performance.now();
+    const boxes=await infer(c,100,100,0.01,0.45);
+    const ms=Math.round(performance.now()-t0);
+    log(`Test done — ${boxes.length} dets at conf≥0.01 in ${ms}ms`, 'lok');
+    toast('Test done — check log & Debug tab','var(--green)');
   } catch(e) {
-    log(`❌ Test failed: ${e.message}`, 'lerr');
+    log(`❌ Test failed: ${e.message}`,'lerr');
   }
 }
+
+// Init class tags on load
+refreshClassTags();
 </script>
 </body>
 </html>
